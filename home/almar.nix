@@ -127,6 +127,32 @@ let
     ${pkgs.libnotify}/bin/notify-send "Screenshot" "Copied to clipboard" || true
   '';
 
+  # 2x2 grid for exactly four windows on the active workspace.
+  #
+  # Dwindle is a binary tree and exposes no dispatcher that can reshape an
+  # arbitrary four-window tree into a specific 2x2 with a chosen window->cell
+  # mapping (layoutmsg only offers togglesplit/swapsplit/movetoroot/preselect).
+  # The master layout can *look* like a 2x2 with two masters, but that is a
+  # global mode change affecting every workspace and still gives no control
+  # over which window lands where. So this floats the four windows and places
+  # them at exact pixel geometry, which is deterministic and verifiable.
+  hyprGrid = pkgs.writeShellScript "hypr-grid" ''
+    set -euo pipefail
+    hyprctl=${pkgs.hyprland}/bin/hyprctl
+    jq=${pkgs.jq}/bin/jq
+
+    ws=$("$hyprctl" activeworkspace -j | "$jq" -r '.id')
+    mons=$("$hyprctl" monitors -j)
+
+    batch=$("$hyprctl" clients -j \
+      | "$jq" -r --argjson mons "$mons" --argjson ws "$ws" -f ${../assets/hypr/grid.jq})
+
+    # Empty means the workspace did not hold exactly four windows.
+    [ -n "$batch" ] || exit 0
+
+    "$hyprctl" --batch "$batch" >/dev/null
+  '';
+
   # Replacement for i3-nagbar's exit prompt, themed by the rofi config below.
   exitMenu = pkgs.writeShellScript "exit-menu" ''
     set -u
@@ -273,6 +299,7 @@ in {
         "$mod, L, exec, ${lockCmd}"
         "$mod SHIFT, S, exec, ${screenshotFile}"
         "$mod SHIFT, C, exec, ${screenshotClip}"
+        "$mod, G, exec, ${hyprGrid}"
 
         # i3 default: Mod+Return opens a terminal
         "$mod, Return, exec, ${pkgs.alacritty}/bin/alacritty"
