@@ -248,7 +248,121 @@ in {
   programs.neovim = {
     enable = true;
     defaultEditor = true;
+
+    plugins = with pkgs.vimPlugins; [
+      nvim-web-devicons
+      nvim-tree-lua
+      plenary-nvim
+      telescope-nvim
+      telescope-fzf-native-nvim
+    ];
+
+    # Telescope shells out to these for find_files and live_grep.
+    extraPackages = with pkgs; [ ripgrep fd ];
+
     initLua = ''
+      -- Leader has to be set before any plugin reads a mapping.
+      vim.g.mapleader = ' '
+      vim.g.maplocalleader = ' '
+
+      -- nvim-tree replaces netrw, which must be disabled before it loads.
+      vim.g.loaded_netrw = 1
+      vim.g.loaded_netrwPlugin = 1
+
+      vim.o.termguicolors = true
+      vim.o.number = true
+      vim.o.signcolumn = 'yes'
+      vim.o.splitright = true
+      vim.o.splitbelow = true
+
+      -- ---- palette -------------------------------------------------------
+      local bg      = '${bg}'
+      local surface = '${surface}'
+      local text    = '${text}'
+      local accent  = '${accent}'
+      local muted   = '${muted}'
+
+      local function theme()
+        local hl = vim.api.nvim_set_hl
+        hl(0, 'Normal',       { fg = text, bg = bg })
+        hl(0, 'NormalFloat',  { fg = text, bg = bg })
+        hl(0, 'FloatBorder',  { fg = accent, bg = bg })
+        hl(0, 'Comment',      { fg = muted, italic = true })
+        hl(0, 'LineNr',       { fg = muted })
+        hl(0, 'CursorLineNr', { fg = accent, bold = true })
+        hl(0, 'CursorLine',   { bg = surface })
+        hl(0, 'Visual',       { bg = surface })
+        hl(0, 'Search',       { fg = bg, bg = accent })
+        hl(0, 'IncSearch',    { fg = bg, bg = accent })
+        hl(0, 'StatusLine',   { fg = text, bg = surface })
+        hl(0, 'WinSeparator', { fg = surface, bg = bg })
+        hl(0, 'Pmenu',        { fg = text, bg = surface })
+        hl(0, 'PmenuSel',     { fg = bg, bg = accent })
+        hl(0, 'Directory',    { fg = accent })
+        hl(0, 'Title',        { fg = accent, bold = true })
+        hl(0, 'ErrorMsg',     { fg = accent })
+
+        -- file tree
+        hl(0, 'NvimTreeNormal',           { fg = text, bg = bg })
+        hl(0, 'NvimTreeWinSeparator',     { fg = surface, bg = bg })
+        hl(0, 'NvimTreeRootFolder',       { fg = accent, bold = true })
+        hl(0, 'NvimTreeFolderName',       { fg = text })
+        hl(0, 'NvimTreeOpenedFolderName', { fg = accent, bold = true })
+        hl(0, 'NvimTreeFolderIcon',       { fg = accent })
+        hl(0, 'NvimTreeIndentMarker',     { fg = surface })
+        hl(0, 'NvimTreeCursorLine',       { bg = surface })
+
+        -- telescope
+        hl(0, 'TelescopeNormal',       { fg = text, bg = bg })
+        hl(0, 'TelescopeBorder',       { fg = accent, bg = bg })
+        hl(0, 'TelescopePromptBorder', { fg = accent, bg = bg })
+        hl(0, 'TelescopePromptTitle',  { fg = bg, bg = accent })
+        hl(0, 'TelescopeResultsTitle', { fg = bg, bg = accent })
+        hl(0, 'TelescopePreviewTitle', { fg = bg, bg = accent })
+        hl(0, 'TelescopeSelection',    { fg = text, bg = surface })
+        hl(0, 'TelescopeMatching',     { fg = accent, bold = true })
+      end
+
+      theme()
+      vim.api.nvim_create_autocmd('ColorScheme', { callback = theme })
+
+      -- ---- file tree -----------------------------------------------------
+      require('nvim-tree').setup({
+        view = { side = 'left', width = 32 },
+        renderer = {
+          group_empty = true,
+          indent_markers = { enable = true },
+        },
+        filters = { dotfiles = false },
+      })
+
+      -- ---- fuzzy finder --------------------------------------------------
+      local telescope = require('telescope')
+      telescope.setup({
+        defaults = {
+          -- ASCII only: literal Nerd Font glyphs are easy to mangle, and
+          -- the icons that matter come from nvim-web-devicons anyway.
+          prompt_prefix = '> ',
+          selection_caret = '> ',
+          sorting_strategy = 'ascending',
+          layout_config = { prompt_position = 'top' },
+        },
+      })
+      pcall(telescope.load_extension, 'fzf')
+
+      -- ---- keymaps -------------------------------------------------------
+      local map = vim.keymap.set
+      map('n', '<leader>e', '<cmd>NvimTreeToggle<cr>',  { desc = 'Toggle file tree' })
+      map('n', '<leader>f', '<cmd>Telescope find_files<cr>', { desc = 'Find files' })
+      map('n', '<leader>g', '<cmd>Telescope live_grep<cr>',  { desc = 'Grep files' })
+      map('n', '<leader>b', '<cmd>Telescope buffers<cr>',    { desc = 'Buffers' })
+
+      map('n', '<C-h>', '<C-w>h', { desc = 'Window left' })
+      map('n', '<C-j>', '<C-w>j', { desc = 'Window down' })
+      map('n', '<C-k>', '<C-w>k', { desc = 'Window up' })
+      map('n', '<C-l>', '<C-w>l', { desc = 'Window right' })
+
+      -- ---- LSP -----------------------------------------------------------
       vim.lsp.config('nil_ls', {
         cmd = { 'nil' },
         settings = { ['nil'] = { formatting = { command = { 'nixfmt' } } } },
