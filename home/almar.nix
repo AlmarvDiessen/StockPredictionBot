@@ -186,6 +186,36 @@ let
     "$hyprctl" --batch "$batch" >/dev/null
   '';
 
+  # fastfetch's battery module exposes capacity and cycle count but not
+  # energy_full / energy_full_design, so battery health needs its own script.
+  # Installed into the profile because the fastfetch config calls it by name.
+  batteryHealth = pkgs.writeShellScriptBin "battery-health" ''
+    bat=/sys/class/power_supply/BAT0
+    # Most laptops expose energy_* (uWh); some expose charge_* (uAh) instead.
+    if [ -r "$bat/energy_full" ] && [ -r "$bat/energy_full_design" ]; then
+      full=$(cat "$bat/energy_full"); design=$(cat "$bat/energy_full_design"); unit=Wh
+    elif [ -r "$bat/charge_full" ] && [ -r "$bat/charge_full_design" ]; then
+      full=$(cat "$bat/charge_full"); design=$(cat "$bat/charge_full_design"); unit=Ah
+    else
+      echo "unavailable"; exit 0
+    fi
+    [ "$design" -gt 0 ] 2>/dev/null || { echo "unavailable"; exit 0; }
+    tenths=$(( full * 1000 / design ))
+    printf '%d.%d%%  (%d.%02d %s of %d.%02d %s)\n' \
+      $(( tenths / 10 )) $(( tenths % 10 )) \
+      $(( full / 1000000 )) $(( (full % 1000000) / 10000 )) "$unit" \
+      $(( design / 1000000 )) $(( (design % 1000000) / 10000 )) "$unit"
+  '';
+
+  # Super+i: fastfetch in a floating terminal. The --class is what the
+  # Hyprland window rules below match on (it becomes the Wayland app_id).
+  sysInfo = pkgs.writeShellScript "sysinfo" ''
+    export PATH=${batteryHealth}/bin:$PATH
+    exec ${pkgs.alacritty}/bin/alacritty --class sysinfo \
+      -e ${pkgs.bash}/bin/bash -c \
+      '${pkgs.fastfetch}/bin/fastfetch; printf "\nPress any key to close... "; read -rsn1'
+  '';
+
   # Replacement for i3-nagbar's exit prompt, themed by the rofi config below.
   exitMenu = pkgs.writeShellScript "exit-menu" ''
     set -u
@@ -203,7 +233,14 @@ in {
 
   home.packages = [
     (pkgs.polybar.override { i3Support = true; })
+    batteryHealth
   ] ++ (with pkgs; [ nil nixfmt xsetroot jq ]);
+
+  programs.fastfetch.enable = true;
+
+  # programs.fastfetch only writes this file when `settings` is non-empty,
+  # so the repo copy (which keeps its comments) can own it outright.
+  xdg.configFile."fastfetch/config.jsonc".source = ../assets/fastfetch/config.jsonc;
 
   xdg.configFile."polybar/config.ini".source =
     (pkgs.formats.ini { }).generate "polybar-config.ini" polybarSettings;
@@ -427,6 +464,7 @@ in {
         "$mod SHIFT, S, exec, ${screenshotFile}"
         "$mod SHIFT, C, exec, ${screenshotClip}"
         "$mod, G, exec, ${hyprGrid}"
+        "$mod, I, exec, ${sysInfo}"
 
         # i3 default: Mod+Return opens a terminal
         "$mod, Return, exec, ${pkgs.alacritty}/bin/alacritty"
@@ -473,6 +511,14 @@ in {
       bindm = [
         "$mod, mouse:272, movewindow"
         "$mod, mouse:273, resizewindow"
+      ];
+
+      # Hyprland 0.55 removed windowrulev2 (it is now an error handler);
+      # plain windowrule carries the v2 selector syntax.
+      windowrule = [
+        "float, class:^(sysinfo)$"
+        "size 900 600, class:^(sysinfo)$"
+        "center, class:^(sysinfo)$"
       ];
     };
 
