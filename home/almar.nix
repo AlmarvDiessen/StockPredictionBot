@@ -163,7 +163,7 @@ let
     export PATH=${batteryHealth}/bin:$PATH
     exec ${pkgs.alacritty}/bin/alacritty --class sysinfo \
       -e ${pkgs.bash}/bin/bash -c \
-      '${pkgs.fastfetch}/bin/fastfetch; printf "\nPress any key to close... "; read -rsn1'
+      '${pkgs.fastfetch}/bin/fastfetch; printf "\n  press q to close  "; while :; do IFS= read -rsn1 k || exit 0; [ "$k" = q ] && exit 0; done'
   '';
 
   # Replacement for i3-nagbar's exit prompt, themed by the rofi config below.
@@ -489,8 +489,11 @@ in {
 
       decoration = {
         rounding = 0;
-        active_opacity = 1.0;
-        inactive_opacity = 0.92;
+        # The original 1.0/0.92 pair was effectively invisible: the focused
+        # window was fully opaque and 8% on the rest reads as nothing. These
+        # values were picked by setting them live and comparing screenshots.
+        active_opacity = 0.90;
+        inactive_opacity = 0.78;
         fullscreen_opacity = 1.0;
         blur = {
           enabled = true;
@@ -616,13 +619,24 @@ in {
 
   services.hyprpaper = {
     enable = true;
+    # hyprpaper 0.8 replaced the old one-liner format. `wallpaper` is now a
+    # hyprlang special category (a block keyed on monitor) and `preload` is
+    # gone entirely -- the only remaining handler is `source`. The old
+    # "preload = <path>" / "wallpaper = ,<path>" pair parses without error
+    # but registers nothing, and the only hint is a debug line reading
+    # "Monitor eDP-1 has no target: no wp will be created".
+    #
+    # "*" is the all-monitors wildcard, so this survives plugging in an
+    # external display. fit_mode = cover is fill: scale to cover, crop the
+    # overflow.
     settings = {
       ipc = "on";
       splash = false;
-      preload = [ "${wallpaper}" ];
-      # "<monitor>,<path>" with an empty monitor means every output.
-      # hyprpaper's default render mode scales to cover, i.e. fill.
-      wallpaper = [ ",${wallpaper}" ];
+      wallpaper = {
+        monitor = "*";
+        path = "${wallpaper}";
+        fit_mode = "cover";
+      };
     };
   };
 
