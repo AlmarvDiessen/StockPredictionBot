@@ -11,6 +11,39 @@ let
   hexOf = c: lib.removePrefix "#" c;
   hyprRgb = c: "rgb(${hexOf c})";
 
+  # Nerd Font glyphs, written as codepoints instead of literal characters.
+  # Literal private-use characters are easy to lose in transit, and a lost
+  # one degrades silently into an empty icon rather than an error, so this
+  # file stays pure ASCII. Handles both the BMP and the supplementary plane
+  # (where most Material Design icons live) via JSON \u escapes.
+  nerd = hex:
+    let
+      cp = lib.fromHexString hex;
+      digits = "0123456789abcdef";
+      hex4 = n:
+        lib.concatMapStrings (p: builtins.substring (lib.mod (n / p) 16) 1 digits)
+          [ 4096 256 16 1 ];
+      esc =
+        if cp < 65536 then
+          "\\u${hex4 cp}"
+        else
+          let c = cp - 65536;
+          in "\\u${hex4 (55296 + (c / 1024))}\\u${hex4 (56320 + (lib.mod c 1024))}";
+    in builtins.fromJSON "\"${esc}\"";
+
+  icons = {
+    cpu = nerd "f4bc"; # nf-oct-cpu
+    calendar = nerd "f073"; # nf-fa-calendar
+    thermometer = nerd "f2c9"; # nf-fa-thermometer-half
+    batteryCharging = nerd "f0084"; # nf-md-battery-charging
+    ethernet = nerd "f0200"; # nf-md-ethernet
+    wifiOff = nerd "f092d"; # nf-md-wifi-strength-off
+    # 0 -> 4 bars
+    wifi = map nerd [ "f092f" "f091f" "f0922" "f0925" "f0928" ];
+    # empty -> full
+    battery = map nerd [ "f244" "f243" "f242" "f241" "f240" ];
+  };
+
   wallpaper = ../assets/wallpaper.jpg;
 
   unfocusedColors = {
@@ -219,6 +252,100 @@ in {
           cyan = text;
           white = text;
         };
+      };
+    };
+  };
+
+  # --- Waybar (Hyprland bar) ------------------------------------------------
+  # Started by home-manager's systemd user service, which is WantedBy
+  # graphical-session.target; hyprland-session.target binds to that. No
+  # exec-once / exec_always anywhere.
+
+  programs.waybar = {
+    enable = true;
+    systemd.enable = true;
+
+    style = builtins.readFile ../assets/waybar/style.css;
+
+    settings.mainBar = {
+      layer = "top";
+      position = "top";
+      height = 30;
+      # Matches the old polybar module-margin; the stylesheet adds padding.
+      spacing = 12;
+
+      modules-left = [ "hyprland/workspaces" "custom/gpu" "cpu" ];
+      modules-center = [ "clock" ];
+      modules-right = [ "network" "battery" "custom/weather" ];
+
+      "hyprland/workspaces" = {
+        format = "{id}";
+        on-click = "activate";
+        sort-by = "id";
+      };
+
+      # The existing gpuStatus script, unchanged: prints "GPU 55°C 12%".
+      "custom/gpu" = {
+        exec = "${gpuStatus}";
+        interval = 5;
+        format = "{}";
+        tooltip = false;
+      };
+
+      # nf-oct-cpu. Nerd Fonts ships no Intel-brand glyph, so this is the
+      # generic CPU-type icon.
+      cpu = {
+        interval = 5;
+        format = "${icons.cpu}  {usage}%";
+        tooltip = false;
+      };
+
+      clock = {
+        interval = 60;
+        # Date format exactly as before; the calendar glyph is decoration.
+        format = "${icons.calendar}  {:%a %d %b  %H:%M}";
+        tooltip-format = "<tt>{calendar}</tt>";
+      };
+
+      # Signal strength as an icon (nf-md-wifi-strength-*).
+      network = {
+        interval = 5;
+        format-wifi = "{icon}";
+        format-ethernet = icons.ethernet;
+        format-linked = icons.ethernet;
+        format-disconnected = icons.wifiOff;
+        format-icons = icons.wifi;
+        tooltip-format-wifi = "{essid}  {signalStrength}%\n{ipaddr}";
+        tooltip-format-ethernet = "{ifname}\n{ipaddr}";
+        tooltip-format-disconnected = "Disconnected";
+      };
+
+      battery = {
+        bat = "BAT0";
+        adapter = "ADP0";
+        full-at = 100;
+        interval = 30;
+        states = {
+          warning = 20;
+          critical = 10;
+        };
+        # format-<status> keys come from /sys/class/power_supply/BAT0/status
+        # lowercased: Discharging -> format-discharging, and so on.
+        format = "BAT {icon} {capacity}%";
+        format-discharging = "BAT {icon} {capacity}%";
+        format-charging = "CHG ${icons.batteryCharging} {capacity}%";
+        format-plugged = "CHG ${icons.batteryCharging} {capacity}%";
+        format-full = "FULL {icon}";
+        format-icons = icons.battery;
+        tooltip-format = "{timeTo}  ({power}W)";
+      };
+
+      # The existing weatherStatus script, unchanged: wttr.in Delfzijl.
+      "custom/weather" = {
+        exec = "${weatherStatus}";
+        interval = 600;
+        format = "${icons.thermometer}  {}";
+        tooltip = false;
       };
     };
   };
