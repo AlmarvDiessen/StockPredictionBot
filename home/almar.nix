@@ -236,6 +236,20 @@ in {
     batteryHealth
   ] ++ (with pkgs; [ nil nixfmt xsetroot jq ]);
 
+  # X11 supplied a cursor implicitly; Wayland does not. Without a theme the
+  # compositor still draws its built-in fallback, but XWayland and GTK apps
+  # fall back separately and end up inconsistent. Setting it once exports
+  # XCURSOR_THEME/XCURSOR_SIZE and writes the GTK and hyprcursor settings.
+  # adwaita-icon-theme is already in the closure via ReGreet.
+  home.pointerCursor = {
+    name = "Adwaita";
+    package = pkgs.adwaita-icon-theme;
+    size = 24;
+    gtk.enable = true;
+    x11.enable = true;
+    hyprcursor.enable = true;
+  };
+
   programs.fastfetch.enable = true;
 
   # programs.fastfetch only writes this file when `settings` is non-empty,
