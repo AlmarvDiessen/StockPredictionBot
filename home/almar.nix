@@ -586,12 +586,15 @@ in {
         "$mod, mouse:273, resizewindow"
       ];
 
-      # Hyprland 0.55 removed windowrulev2 (it is now an error handler);
-      # plain windowrule carries the v2 selector syntax.
+      # Hyprland 0.53 replaced the old "<rule>, <selector>" window rule
+      # grammar with comma-separated "<field> <value>" pairs: match
+      # properties are spelled "match:<prop> <regex>", and every effect now
+      # needs an explicit value (bare "float"/"center" are a parse error).
+      # One rule line can carry several effects, so the three old lines
+      # collapse into one. Verified against 0.55.4 with Hyprland
+      # --verify-config.
       windowrule = [
-        "float, class:^(sysinfo)$"
-        "size 900 600, class:^(sysinfo)$"
-        "center, class:^(sysinfo)$"
+        "match:class ^(sysinfo)$, float true, size 900 600, center true"
       ];
     };
 
