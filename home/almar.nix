@@ -63,11 +63,6 @@ let
     ${pkgs.curl}/bin/curl -s "https://wttr.in/Delfzijl?format=%t" || echo "--"
   '';
 
-  barLaunch = pkgs.writeShellScript "launch-bar" ''
-    ${pkgs.procps}/bin/pkill -x polybar || true
-    ${pkgs.util-linux}/bin/setsid -f ${pkgs.polybar}/bin/polybar main >/dev/null 2>&1
-  '';
-
   gridScript = pkgs.writeShellScript "i3-grid" ''
     ws=$(${pkgs.i3}/bin/i3-msg -t get_workspaces | ${pkgs.jq}/bin/jq -r '.[] | select(.focused) | .name')
     ids=$(${pkgs.i3}/bin/i3-msg -t get_tree | ${pkgs.jq}/bin/jq -r --arg ws "$ws" '.. | objects | select(.type? == "workspace" and .name? == $ws) | .. | objects | select(.window? != null) | .id')
@@ -90,51 +85,6 @@ let
       esac
     done
   '';
-
-  polybarSettings = {
-    "bar/main" = {
-      width = "100%";
-      height = 26;
-      background = bg;
-      foreground = text;
-      padding-left = 1;
-      padding-right = 1;
-      font-0 = "${font}:size=10;2";
-      module-margin = 3;
-      modules-left = "gpu";
-      modules-center = "date";
-      modules-right = "battery weather";
-    };
-    "module/gpu" = {
-      type = "custom/script";
-      exec = "${gpuStatus}";
-      interval = 5;
-      format-foreground = accent;
-    };
-    "module/date" = {
-      type = "internal/date";
-      interval = 60;
-      date = "%a %d %b  %H:%M";
-      label = "%date%";
-    };
-    "module/battery" = {
-      type = "internal/battery";
-      battery = "BAT0";
-      adapter = "ADP0";
-      full-at = 100;
-      format-charging = "CHG <label-charging>";
-      format-discharging = "BAT <label-discharging>";
-      format-full = "FULL";
-      label-charging = "%percentage%%";
-      label-discharging = "%percentage%%";
-    };
-    "module/weather" = {
-      type = "custom/script";
-      exec = "${weatherStatus}";
-      interval = 600;
-      format-foreground = accent;
-    };
-  };
 
   # --- Wayland helper scripts ----------------------------------------------
 
@@ -231,10 +181,8 @@ let
 in {
   home.stateVersion = "26.05";
 
-  home.packages = [
-    (pkgs.polybar.override { i3Support = true; })
-    batteryHealth
-  ] ++ (with pkgs; [ nil nixfmt xsetroot jq ]);
+  home.packages = [ batteryHealth ]
+    ++ (with pkgs; [ nil nixfmt xsetroot jq ]);
 
   # X11 supplied a cursor implicitly; Wayland does not. Without a theme the
   # compositor still draws its built-in fallback, but XWayland and GTK apps
@@ -255,9 +203,6 @@ in {
   # programs.fastfetch only writes this file when `settings` is non-empty,
   # so the repo copy (which keeps its comments) can own it outright.
   xdg.configFile."fastfetch/config.jsonc".source = ../assets/fastfetch/config.jsonc;
-
-  xdg.configFile."polybar/config.ini".source =
-    (pkgs.formats.ini { }).generate "polybar-config.ini" polybarSettings;
 
   programs.neovim = {
     enable = true;
@@ -717,7 +662,6 @@ in {
     enable = true;
     extraConfig = ''
       exec_always --no-startup-id feh --no-fehbg --bg-fill ${wallpaper}
-      exec --no-startup-id ${barLaunch}
       exec --no-startup-id ${gridWatcher}
     '';
     config = {
