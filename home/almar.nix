@@ -1,4 +1,4 @@
-{ pkgs, lib, ... }:
+		{ pkgs, lib, ... }:
 let
   bg = "#1b1b1b";
   surface = "#323232";
@@ -29,6 +29,29 @@ let
     ${pkgs.util-linux}/bin/setsid -f ${pkgs.polybar}/bin/polybar main >/dev/null 2>&1
   '';
 
+  gridScript = pkgs.writeShellScript "i3-grid" ''
+    ws=$(${pkgs.i3}/bin/i3-msg -t get_workspaces | ${pkgs.jq}/bin/jq -r '.[] | select(.focused) | .name')
+    ids=$(${pkgs.i3}/bin/i3-msg -t get_tree | ${pkgs.jq}/bin/jq -r --arg ws "$ws" '.. | objects | select(.type? == "workspace" and .name? == $ws) | .. | objects | select(.window? != null) | .id')
+    set -- $ids
+    [ $# -eq 4 ] || exit 0
+    a=$1; b=$2; c=$3; d=$4
+    m() { ${pkgs.i3}/bin/i3-msg "$@" >/dev/null; }
+    m "[con_id=$a] mark --add ga"
+    m "[con_id=$c] mark --add gc"
+    m "[con_id=$a] split vertical"
+    m "[con_id=$b] move container to mark ga"
+    m "[con_id=$c] split vertical"
+    m "[con_id=$d] move container to mark gc"
+  '';
+
+  gridWatcher = pkgs.writeShellScript "i3-grid-watch" ''
+    ${pkgs.i3}/bin/i3-msg -t subscribe -m '["window"]' | while read -r line; do
+      case "$line" in
+        *'"change":"new"'*) sleep 0.3; ${gridScript} ;;
+      esac
+    done
+  '';
+
   polybarSettings = {
     "bar/main" = {
       width = "100%";
@@ -38,9 +61,10 @@ let
       padding-left = 1;
       padding-right = 1;
       font-0 = "${font}:size=10;2";
+      module-margin = 3;
       modules-left = "gpu";
       modules-center = "date";
-      modules-right = "weather";
+      modules-right = "battery weather";
     };
     "module/gpu" = {
       type = "custom/script";
@@ -54,6 +78,17 @@ let
       date = "%a %d %b  %H:%M";
       label = "%date%";
     };
+    "module/battery" = {
+      type = "internal/battery";
+      battery = "BAT0";
+      adapter = "ADP0";
+      full-at = 100;
+      format-charging = "CHG <label-charging>";
+      format-discharging = "BAT <label-discharging>";
+      format-full = "FULL";
+      label-charging = "%percentage%%";
+      label-discharging = "%percentage%%";
+    };
     "module/weather" = {
       type = "custom/script";
       exec = "${weatherStatus}";
@@ -66,7 +101,7 @@ in {
 
   home.packages = [
     (pkgs.polybar.override { i3Support = true; })
-  ] ++ (with pkgs; [ nil nixfmt ]);
+  ] ++ (with pkgs; [ nil nixfmt xsetroot ]);
 
   xdg.configFile."polybar/config.ini".source =
     (pkgs.formats.ini { }).generate "polybar-config.ini" polybarSettings;
@@ -74,7 +109,7 @@ in {
   programs.neovim = {
     enable = true;
     defaultEditor = true;
-    extraLuaConfig = ''
+    initLua = ''
       vim.lsp.config('nil_ls', {
         cmd = { 'nil' },
         settings = { ['nil'] = { formatting = { command = { 'nixfmt' } } } },
@@ -121,7 +156,11 @@ in {
 
   xsession.windowManager.i3 = {
     enable = true;
-    extraConfig = "exec_always --no-startup-id ${barLaunch}";
+       extraConfig = ''
+         exec_always --no-startup-id feh --no-fehbg --bg-fill ~/Pictures/wallpaper.jpg
+         exec --no-startup-id ${barLaunch}
+         exec --no-startup-id ${gridWatcher}
+       '';
     config = {
       modifier = "Mod4";
       terminal = "alacritty";
@@ -161,6 +200,7 @@ in {
         "Mod1+Tab" = "exec rofi -show window";
         "Mod4+Shift+s" = "exec maim -s ~/Pictures/screenshot-$(date +%F-%H%M%S).png";
         "Mod4+Shift+c" = "exec maim -s | xclip -selection clipboard -t image/png";
+        "Mod4+g" = "exec ${gridScript}";
       };
     };
   };
