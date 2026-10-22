@@ -4,3 +4,9 @@
 
 # Claude Code local settings
 /.claude/
+
+# Editor emergency-save files. nano writes these as root when run under
+# sudo, with mode 600, which stops Nix copying the tree for a dirty flake.
+*.save
+*.swp
+*~

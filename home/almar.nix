@@ -11,6 +11,14 @@ let
   hexOf = c: lib.removePrefix "#" c;
   hyprRgb = c: "rgb(${hexOf c})";
 
+  # "#RRGGBB" -> a truecolour SGR foreground code, so terminal output can be
+  # coloured straight from the palette above.
+  sgrOf = c:
+    let
+      h = hexOf c;
+      comp = i: toString (lib.fromHexString (builtins.substring i 2 h));
+    in "38;2;${comp 0};${comp 2};${comp 4}";
+
   # Nerd Font glyphs, written as codepoints instead of literal characters.
   # Literal private-use characters are easy to lose in transit, and a lost
   # one degrades silently into an empty icon rather than an error, so this
@@ -164,6 +172,22 @@ let
     exec ${pkgs.alacritty}/bin/alacritty --class sysinfo \
       -e ${pkgs.bash}/bin/bash -c \
       '${pkgs.fastfetch}/bin/fastfetch; printf "\n  press q to close  "; while :; do IFS= read -rsn1 k || exit 0; [ "$k" = q ] && exit 0; done'
+  '';
+
+  # Super+/: the shortcut cheatsheet. Rendered from `hyprctl binds -j`, so
+  # it lists whatever is actually bound right now rather than a hand-kept
+  # copy that drifts. Only binds declared with `bindd` show up.
+  shortcutsHelp = pkgs.writeShellScript "hypr-shortcuts" ''
+    exec ${pkgs.alacritty}/bin/alacritty --class hyprhelp -o font.size=9 \
+      -e ${pkgs.bash}/bin/bash -c \
+      '${pkgs.hyprland}/bin/hyprctl binds -j \
+         | ${pkgs.jq}/bin/jq -r \
+             --arg accent  "${sgrOf accent}" \
+             --arg text    "${sgrOf text}" \
+             --arg muted   "${sgrOf muted}" \
+             --arg surface "${sgrOf surface}" \
+             -f ${../assets/hypr/shortcuts.jq} \
+         | ${pkgs.less}/bin/less -R'
   '';
 
   # Replacement for i3-nagbar's exit prompt, themed by the rofi config below.
@@ -527,66 +551,76 @@ in {
         touchpad.natural_scroll = false;
       };
 
-      bind = [
+      # Every bind is declared with `bindd`, which attaches a description
+      # that Hyprland reports back through `hyprctl binds -j`. The Super+/
+      # cheatsheet is rendered from that, so the help can never drift out of
+      # sync with the real keymap.
+      #
+      # Descriptions must not contain commas: bindd splits its fields on
+      # commas with a bounded count, and the description is a middle field,
+      # so only the trailing dispatcher args may contain them.
+      bindd = [
         # --- the bindings carried over from i3 ---
-        "$mod, D, exec, ${pkgs.rofi}/bin/rofi -show drun"
-        "$mod, T, exec, ${pkgs.alacritty}/bin/alacritty"
-        "ALT, Tab, exec, ${pkgs.rofi}/bin/rofi -show window"
-        "$mod, F, fullscreen, 0"
-        "$mod SHIFT, Q, killactive"
-        "$mod SHIFT, R, exec, ${pkgs.hyprland}/bin/hyprctl reload"
-        "$mod SHIFT, E, exec, ${exitMenu}"
-        "$mod, L, exec, ${lockCmd}"
-        "$mod SHIFT, S, exec, ${screenshotFile}"
-        "$mod SHIFT, C, exec, ${screenshotClip}"
-        "$mod, G, exec, ${hyprGrid}"
-        "$mod, I, exec, ${sysInfo}"
+        "$mod, D, Open the rofi application launcher to search and start any installed program, exec, ${pkgs.rofi}/bin/rofi -show drun"
+        "$mod, T, Open a new Alacritty terminal window on the current active workspace, exec, ${pkgs.alacritty}/bin/alacritty"
+        "ALT, Tab, Switch to another open window by picking it from the rofi list, exec, ${pkgs.rofi}/bin/rofi -show window"
+        "$mod, F, Toggle real fullscreen on the focused window hiding its border and bar, fullscreen, 0"
+        "$mod SHIFT, Q, Close the currently focused window and free the screen space it used, killactive"
+        "$mod SHIFT, R, Reload the Hyprland configuration from disk without restarting your running desktop session, exec, ${pkgs.hyprland}/bin/hyprctl reload"
+        "$mod SHIFT, E, Open the exit menu to lock log out reboot or shut down, exec, ${exitMenu}"
+        "$mod, L, Lock the screen straight away using swaylock showing the desktop wallpaper, exec, ${lockCmd}"
+        "$mod SHIFT, S, Select a screen region and save that screenshot into your Pictures folder, exec, ${screenshotFile}"
+        "$mod SHIFT, C, Select a screen region and copy that screenshot directly to the clipboard, exec, ${screenshotClip}"
+        "$mod, G, Arrange exactly four windows on the active workspace into a tidy grid, exec, ${hyprGrid}"
+        "$mod, I, Show system information including model memory graphics driver and battery health, exec, ${sysInfo}"
+        "$mod, slash, Open this shortcut helper listing every key binding with a written description, exec, ${shortcutsHelp}"
 
         # i3 default: Mod+Return opens a terminal
-        "$mod, Return, exec, ${pkgs.alacritty}/bin/alacritty"
+        "$mod, Return, Open a new Alacritty terminal window matching the old i3 keyboard binding, exec, ${pkgs.alacritty}/bin/alacritty"
 
-        # i3 default: focus / move with the arrow keys
-        "$mod, left, movefocus, l"
-        "$mod, down, movefocus, d"
-        "$mod, up, movefocus, u"
-        "$mod, right, movefocus, r"
-        "$mod SHIFT, left, movewindow, l"
-        "$mod SHIFT, down, movewindow, d"
-        "$mod SHIFT, up, movewindow, u"
-        "$mod SHIFT, right, movewindow, r"
+        # i3 default: focus / move with the arrow keys. All four share one
+        # description so the cheatsheet collapses them onto a single row.
+        "$mod, left, Move the keyboard focus to the neighbouring window in that direction, movefocus, l"
+        "$mod, down, Move the keyboard focus to the neighbouring window in that direction, movefocus, d"
+        "$mod, up, Move the keyboard focus to the neighbouring window in that direction, movefocus, u"
+        "$mod, right, Move the keyboard focus to the neighbouring window in that direction, movefocus, r"
+        "$mod SHIFT, left, Move the focused window one place in that direction inside the layout, movewindow, l"
+        "$mod SHIFT, down, Move the focused window one place in that direction inside the layout, movewindow, d"
+        "$mod SHIFT, up, Move the focused window one place in that direction inside the layout, movewindow, u"
+        "$mod SHIFT, right, Move the focused window one place in that direction inside the layout, movewindow, r"
 
         # i3 default: split orientation (dwindle folds both onto togglesplit)
-        "$mod, H, layoutmsg, togglesplit"
-        "$mod, V, layoutmsg, togglesplit"
+        "$mod, H, Toggle whether the next window opens beside or below the focused one, layoutmsg, togglesplit"
+        "$mod, V, Toggle whether the next window opens beside or below the focused one, layoutmsg, togglesplit"
 
         # i3 default: stacking / tabbed layouts -> pseudo / groups
-        "$mod, S, pseudo"
-        "$mod, W, togglegroup"
-        "$mod, E, changegroupactive, f"
+        "$mod, S, Toggle pseudo tiling so the focused window keeps its own preferred size, pseudo"
+        "$mod, W, Group the focused window together with its neighbours into one tabbed container, togglegroup"
+        "$mod, E, Cycle forward through the windows held inside the currently focused tabbed group, changegroupactive, f"
 
         # i3 default: floating toggle and window cycling
-        "$mod SHIFT, space, togglefloating"
-        "$mod, space, cyclenext"
+        "$mod SHIFT, space, Toggle the focused window between floating freely and being tiled normally, togglefloating"
+        "$mod, space, Move the keyboard focus onwards to the next window on this workspace, cyclenext"
 
         # i3 default: scratchpad -> special workspace
-        "$mod SHIFT, minus, movetoworkspacesilent, special:scratchpad"
-        "$mod, minus, togglespecialworkspace, scratchpad"
+        "$mod SHIFT, minus, Send the focused window into the hidden scratchpad workspace without following it, movetoworkspacesilent, special:scratchpad"
+        "$mod, minus, Show or hide the scratchpad workspace where you stash windows away, togglespecialworkspace, scratchpad"
 
         # i3 default: resize mode
-        "$mod, R, submap, resize"
+        "$mod, R, Enter resize mode where the arrow keys resize the currently focused window, submap, resize"
       ]
       ++ (builtins.concatMap
         (n:
           let ws = if n == 0 then "10" else toString n;
           in [
-            "$mod, ${toString n}, workspace, ${ws}"
-            "$mod SHIFT, ${toString n}, movetoworkspace, ${ws}"
+            "$mod, ${toString n}, Switch the current monitor to that workspace and show the windows on it, workspace, ${ws}"
+            "$mod SHIFT, ${toString n}, Send the focused window to that workspace without moving your view there, movetoworkspace, ${ws}"
           ])
         [ 1 2 3 4 5 6 7 8 9 0 ]);
 
-      bindm = [
-        "$mod, mouse:272, movewindow"
-        "$mod, mouse:273, resizewindow"
+      binddm = [
+        "$mod, mouse:272, Hold Super and drag with the left mouse button to move windows, movewindow"
+        "$mod, mouse:273, Hold Super and drag with the right mouse button to resize windows, resizewindow"
       ];
 
       # Hyprland 0.53 replaced the old "<rule>, <selector>" window rule
@@ -598,20 +632,24 @@ in {
       # --verify-config.
       windowrule = [
         "match:class ^(sysinfo)$, float true, size 900 600, center true"
+        # Taller than the info screen: the cheatsheet is a long list. The
+        # panel is 1280x720 logical (1920x1080 at scale 1.5) so this leaves
+        # a margin on every side.
+        "match:class ^(hyprhelp)$, float true, size 1200 684, center true"
       ];
     };
 
     submaps.resize = {
       settings = {
-        binde = [
-          ", right, resizeactive, 20 0"
-          ", left, resizeactive, -20 0"
-          ", up, resizeactive, 0 -20"
-          ", down, resizeactive, 0 20"
+        bindde = [
+          ", right, Grow or shrink the focused window by twenty pixels in that direction, resizeactive, 20 0"
+          ", left, Grow or shrink the focused window by twenty pixels in that direction, resizeactive, -20 0"
+          ", up, Grow or shrink the focused window by twenty pixels in that direction, resizeactive, 0 -20"
+          ", down, Grow or shrink the focused window by twenty pixels in that direction, resizeactive, 0 20"
         ];
-        bind = [
-          ", escape, submap, reset"
-          ", Return, submap, reset"
+        bindd = [
+          ", escape, Leave resize mode and go back to the normal keyboard binding set, submap, reset"
+          ", Return, Leave resize mode and go back to the normal keyboard binding set, submap, reset"
         ];
       };
     };
