@@ -1,0 +1,162 @@
+/* ReGreet (GTK4) theme.
+ *
+ * Palette:
+ *   background #1b1b1b   surface #323232   text #FFE7D0
+ *   accent     #FC6E20   muted   #8a8a8a
+ *
+ * Widget names come from ReGreet's GUI template (src/gui/templates.rs):
+ * the root is a GtkOverlay holding #background (the wallpaper GtkPicture),
+ * a centred GtkFrame.background (the login box), #clock_frame at the top
+ * edge, and an error GtkInfoBar at the bottom.
+ */
+
+* {
+  font-family: "JetBrainsMono Nerd Font", monospace;
+  color: #FFE7D0;
+}
+
+/* The wallpaper sits in the Picture; keep everything behind it dark so no
+ * white flash shows while the image is still loading. */
+window,
+overlay {
+  background-color: #1b1b1b;
+}
+
+/* ---- Login box ---------------------------------------------------------- */
+
+frame.background {
+  background-color: rgba(27, 27, 27, 0.82);
+  border: 2px solid #FC6E20;
+  border-radius: 14px;
+  padding: 6px;
+}
+
+/* The clock reuses .background but is flush with the top edge, so it keeps
+ * square top corners and no top border (ReGreet sets that inline). */
+#clock_frame {
+  background-color: rgba(27, 27, 27, 0.82);
+  border: 2px solid #FC6E20;
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+  padding: 4px 18px;
+}
+
+#clock_frame label {
+  font-size: 1.15rem;
+  color: #FFE7D0;
+}
+
+/* ---- Labels ------------------------------------------------------------- */
+
+label {
+  color: #FFE7D0;
+}
+
+#message_label {
+  color: #FC6E20;
+  font-size: 1.1rem;
+}
+
+/* ---- Text entries and the session/user combo boxes ---------------------- */
+
+entry,
+passwordentry,
+combobox button,
+combobox entry {
+  background-color: #323232;
+  background-image: none;
+  color: #FFE7D0;
+  border: 1px solid #323232;
+  border-radius: 8px;
+  padding: 6px 10px;
+  min-height: 32px;
+  caret-color: #FC6E20;
+}
+
+entry:focus,
+passwordentry:focus,
+combobox button:focus,
+combobox button:hover {
+  border-color: #FC6E20;
+  outline: none;
+  box-shadow: none;
+}
+
+entry selection,
+passwordentry selection {
+  background-color: #FC6E20;
+  color: #1b1b1b;
+}
+
+/* The session dropdown list itself. */
+popover,
+popover contents,
+popover modelbutton {
+  background-color: #1b1b1b;
+  color: #FFE7D0;
+}
+
+popover modelbutton:hover,
+popover modelbutton:selected {
+  background-color: #FC6E20;
+  color: #1b1b1b;
+}
+
+/* ---- Buttons ------------------------------------------------------------ */
+
+button {
+  background-color: #323232;
+  background-image: none;
+  color: #FFE7D0;
+  border: 1px solid #323232;
+  border-radius: 8px;
+  padding: 6px 14px;
+  min-height: 32px;
+}
+
+button:hover {
+  border-color: #FC6E20;
+}
+
+/* Login */
+button.suggested-action {
+  background-color: #FC6E20;
+  background-image: none;
+  color: #1b1b1b;
+  border-color: #FC6E20;
+  font-weight: bold;
+}
+
+button.suggested-action:hover {
+  background-color: #FFE7D0;
+  border-color: #FFE7D0;
+  color: #1b1b1b;
+}
+
+/* Reboot / shut down */
+button.destructive-action {
+  background-color: transparent;
+  background-image: none;
+  color: #8a8a8a;
+  border-color: #323232;
+}
+
+button.destructive-action:hover {
+  color: #FC6E20;
+  border-color: #FC6E20;
+}
+
+/* ---- Error bar ---------------------------------------------------------- */
+
+infobar,
+infobar.error,
+infobar > revealer > box {
+  background-color: #1b1b1b;
+  background-image: none;
+  border: 2px solid #FC6E20;
+  border-radius: 10px;
+}
+
+#error_label {
+  color: #FC6E20;
+}

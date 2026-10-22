@@ -1,0 +1,136 @@
+/* Waybar theme.
+ *
+ * Palette:
+ *   background #1b1b1b   surface #323232   text #FFE7D0
+ *   accent     #FC6E20   muted   #8a8a8a
+ *
+ * Module spacing carries over from the old polybar bar, which used
+ * module-margin = 3. Here that is the bar's `spacing` plus the horizontal
+ * padding on each module below.
+ */
+
+* {
+  font-family: "JetBrainsMono Nerd Font", monospace;
+  font-size: 13px;
+  border: none;
+  border-radius: 0;
+  min-height: 0;
+}
+
+window#waybar {
+  background-color: rgba(27, 27, 27, 0.85);
+  color: #FFE7D0;
+}
+
+window#waybar.hidden {
+  opacity: 0.2;
+}
+
+/* ---- Workspaces --------------------------------------------------------- */
+
+#workspaces {
+  margin: 0 4px;
+}
+
+#workspaces button {
+  padding: 0 10px;
+  margin: 3px 2px;
+  background-color: transparent;
+  color: #8a8a8a;
+  border-radius: 6px;
+}
+
+#workspaces button:hover {
+  background-color: #323232;
+  color: #FFE7D0;
+  /* GTK draws a box-shadow on hover by default; flatten it. */
+  box-shadow: none;
+  text-shadow: none;
+}
+
+#workspaces button.active {
+  background-color: #FC6E20;
+  color: #1b1b1b;
+  font-weight: bold;
+}
+
+#workspaces button.urgent {
+  background-color: #323232;
+  color: #FC6E20;
+}
+
+/* ---- Modules ------------------------------------------------------------ */
+
+#custom-gpu,
+#cpu,
+#clock,
+#network,
+#battery,
+#custom-weather {
+  padding: 0 12px;
+  color: #FFE7D0;
+}
+
+#custom-gpu {
+  color: #FC6E20;
+}
+
+#cpu {
+  color: #FFE7D0;
+}
+
+#clock {
+  color: #FFE7D0;
+  font-weight: bold;
+}
+
+#network {
+  color: #FFE7D0;
+}
+
+#network.disconnected {
+  color: #FC6E20;
+}
+
+#custom-weather {
+  color: #FC6E20;
+}
+
+/* ---- Battery ------------------------------------------------------------ */
+
+#battery {
+  color: #FFE7D0;
+}
+
+#battery.charging,
+#battery.plugged {
+  color: #FFE7D0;
+}
+
+#battery.full {
+  color: #8a8a8a;
+}
+
+/* `states` in the config below turns these on at the configured levels. */
+#battery.warning:not(.charging) {
+  color: #FC6E20;
+}
+
+#battery.critical:not(.charging) {
+  background-color: #FC6E20;
+  color: #1b1b1b;
+  font-weight: bold;
+}
+
+/* ---- Tooltips ----------------------------------------------------------- */
+
+tooltip {
+  background-color: #1b1b1b;
+  border: 1px solid #FC6E20;
+  border-radius: 8px;
+}
+
+tooltip label {
+  color: #FFE7D0;
+  padding: 4px;
+}
