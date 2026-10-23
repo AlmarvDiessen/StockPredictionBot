@@ -1,31 +1,8 @@
 { config, pkgs, ... }: {
-  # --- X11 / i3 -------------------------------------------------------------
-  # Kept so i3 stays a selectable session at the login screen and remains a
-  # working fallback if the Hyprland session misbehaves.
-  services.xserver.enable = true;
-  services.xserver.xkb = {
-    layout = "us";
-    variant = "";
-  };
-  services.xserver.windowManager.i3.enable = true;
-
-  # greetd does not start an X server, so X11 sessions have to bring their
-  # own. This installs xinit (startx) and the system xserverrc that starts
-  # X with the configured server args; ReGreet prefixes xsession entries
-  # with commands.x11_prefix below.
-  services.xserver.displayManager.startx.enable = true;
-
-  # Compositor for the X11/i3 session only; Hyprland composites itself.
-  services.picom.enable = true;
-
   # --- Wayland / Hyprland ---------------------------------------------------
   programs.hyprland = {
     enable = true;
     xwayland.enable = true;
-    # UWSM is left off: home-manager's hyprland module already wires up
-    # hyprland-session.target -> graphical-session.target, which is what
-    # starts the Waybar user service.
-    withUWSM = false;
   };
 
   services.displayManager.defaultSession = "hyprland";
@@ -58,9 +35,6 @@
       commands = {
         reboot = [ "${pkgs.systemd}/bin/systemctl" "reboot" ];
         poweroff = [ "${pkgs.systemd}/bin/systemctl" "poweroff" ];
-        # Applied to entries found in xsessions/ (i3). Absolute path so this
-        # does not depend on the greeter's PATH.
-        x11_prefix = [ "${pkgs.xinit}/bin/startx" "/usr/bin/env" ];
       };
 
       appearance.greeting_msg = "head";
@@ -80,18 +54,13 @@
   systemd.services.greetd.environment.XDG_DATA_DIRS =
     "${config.services.displayManager.sessionData.desktops}/share:/run/current-system/sw/share";
 
-  environment.sessionVariables.TERMINAL = "alacritty";
+  environment.sessionVariables.TERMINAL = "kitty";
 
   fonts.packages = [ pkgs.nerd-fonts.jetbrains-mono ];
 
   environment.systemPackages = with pkgs; [
     firefox
     libnotify
-
-    # X11/i3 session tools (wallpaper + screenshots)
-    feh
-    maim
-    xclip
 
     # Wayland/Hyprland session tools (screenshots + clipboard)
     grim

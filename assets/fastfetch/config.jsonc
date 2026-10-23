@@ -5,7 +5,7 @@
 //   text   #FFE7D0 -> 38;2;255;231;208
 //   muted  #8a8a8a -> 38;2;138;138;138
 //
-// "battery-health" is a small script on PATH (defined in home/almar.nix);
+// "battery-health" is a small script on PATH (defined in home/default.nix);
 // fastfetch's battery module exposes capacity and cycle count but not
 // energy_full / energy_full_design, which is what battery health needs.
 {
