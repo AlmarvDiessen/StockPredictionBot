@@ -22,13 +22,11 @@
     LC_TIME = "nl_NL.UTF-8";
   };
 
-  users.users.user = {
+  users.users.almar = {
     isNormalUser = true;
-    description = "user";
+    uid = 1000;
+    description = "almar";
     extraGroups = [ "networkmanager" "wheel" ];
-    # No key baked in on purpose: add your own here, or just set a password
-    # with `passwd` after first boot.
-    openssh.authorizedKeys.keys = [ ];
   };
 
   services.openssh.enable = true;
