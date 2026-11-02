@@ -7,6 +7,11 @@
 
   services.displayManager.defaultSession = "hyprland";
 
+  # swaylock (bound to $mod,L; see home/default.nix lockCmd) ships no PAM
+  # service file by default, so without this it cannot authenticate at all
+  # -- the lock screen would be unlockable with any password.
+  security.pam.services.swaylock = {};
+
   # --- Login screen: greetd + ReGreet --------------------------------------
   # programs.regreet enables services.greetd itself and points its
   # default_session at ReGreet running under the cage compositor.

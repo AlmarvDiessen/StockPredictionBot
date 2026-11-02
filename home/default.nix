@@ -200,6 +200,16 @@ in {
     hyprcursor.enable = true;
   };
 
+  # Lets home-manager inject the direnv shell hook below into ~/.bashrc.
+  programs.bash.enable = true;
+
+  programs.direnv = {
+    enable = true;
+    # Caches devShell evaluations so re-entering a project directory is
+    # instant instead of re-evaluating its flake every time.
+    nix-direnv.enable = true;
+  };
+
   programs.fastfetch.enable = true;
 
   # programs.fastfetch only writes this file when `settings` is non-empty,
@@ -220,7 +230,8 @@ in {
       # Treesitter only needs to be on the runtimepath for its bundled
       # parsers; this version has no configs.lua/.setup({highlight=...}) --
       # highlighting is enabled via the FileType autocmd below instead.
-      (nvim-treesitter.withPlugins (p: [ p.nix p.python p.lua p.vim p.vimdoc ]))
+      (nvim-treesitter.withPlugins
+        (p: [ p.nix p.python p.lua p.vim p.vimdoc p.typescript p.tsx p.javascript ]))
 
       nvim-cmp
       cmp-nvim-lsp
@@ -229,11 +240,15 @@ in {
 
       lualine-nvim
       gitsigns-nvim
+      toggleterm-nvim
     ];
 
     # Telescope shells out to ripgrep/fd; pyright and ruff are the Python
-    # LSP/lint/format backends enabled below.
-    extraPackages = with pkgs; [ ripgrep fd pyright ruff ];
+    # LSP/lint/format backends enabled below; typescript-language-server is
+    # the TS/TSX backend (it also shells out to the typescript package for
+    # some features).
+    extraPackages = with pkgs;
+      [ ripgrep fd pyright ruff typescript-language-server typescript ];
 
     initLua = ''
       -- Leader has to be set before any plugin reads a mapping.
@@ -387,6 +402,28 @@ in {
       map('n', '<C-k>', '<C-w>k', { desc = 'Window up' })
       map('n', '<C-l>', '<C-w>l', { desc = 'Window right' })
 
+      -- ---- terminal --------------------------------------------------------
+      require('toggleterm').setup({
+        direction = 'horizontal',
+        size = 12,
+        open_mapping = [[<c-\>]],
+      })
+      -- Esc leaves terminal insert mode without the <C-\><C-n> chord.
+      map('t', '<Esc>', [[<C-\><C-n>]])
+
+      -- ---- IDE layout on open: file tree + terminal + code ------------------
+      -- Only when nvim is opened with a real file argument (not stdin, not a
+      -- commit-message/no-arg launch), so quick `nvim` or piped usage stays plain.
+      vim.api.nvim_create_autocmd('VimEnter', {
+        callback = function()
+          if vim.fn.argc() == 0 then return end
+          vim.cmd('NvimTreeOpen')
+          vim.cmd('wincmd l')
+          vim.cmd('ToggleTerm direction=horizontal size=12')
+          vim.cmd('wincmd k')
+        end,
+      })
+
       -- ---- autocomplete ---------------------------------------------------
       local cmp = require('cmp')
       cmp.setup({
@@ -434,6 +471,14 @@ in {
         root_markers = { 'pyproject.toml', 'setup.py', 'setup.cfg', '.git' },
       })
       vim.lsp.enable('ruff')
+
+      vim.lsp.config('ts_ls', {
+        cmd = { 'typescript-language-server', '--stdio' },
+        filetypes = { 'javascript', 'javascriptreact', 'typescript', 'typescriptreact' },
+        capabilities = capabilities,
+        root_markers = { 'package.json', 'tsconfig.json', '.git' },
+      })
+      vim.lsp.enable('ts_ls')
     '';
   };
 
@@ -521,7 +566,7 @@ in {
 
       modules-left = [ "hyprland/workspaces" "custom/gpu" "cpu" ];
       modules-center = [ "clock" ];
-      modules-right = [ "network" "battery" "custom/weather" ];
+      modules-right = [ "hyprland/submap" "network" "battery" "custom/weather" ];
 
       "hyprland/workspaces" = {
         format = "{id}";
@@ -675,7 +720,7 @@ in {
         "$mod, D, Open the rofi application launcher to search and start any installed program, exec, ${pkgs.rofi}/bin/rofi -show drun"
         "$mod, T, Open a new Kitty terminal window on the current active workspace, exec, ${pkgs.kitty}/bin/kitty"
         "ALT, Tab, Switch to another open window by picking it from the rofi list, exec, ${pkgs.rofi}/bin/rofi -show window"
-        "$mod, F, Toggle real fullscreen on the focused window hiding its border and bar, fullscreen, 0"
+        "$mod, F, Maximize the focused window to fill the usable screen area while keeping waybar visible, fullscreen, 1"
         "$mod SHIFT, Q, Close the currently focused window and free the screen space it used, killactive"
         "$mod SHIFT, R, Reload the Hyprland configuration from disk without restarting your running desktop session, exec, ${pkgs.hyprland}/bin/hyprctl reload"
         "$mod SHIFT, E, Open the exit menu to lock log out reboot or shut down, exec, ${exitMenu}"

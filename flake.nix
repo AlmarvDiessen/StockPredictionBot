@@ -10,6 +10,11 @@
   };
 
   outputs = { self, nixpkgs, home-manager, ... }: {
+    templates.nextjs-ts = {
+      path = ./templates/nextjs-ts;
+      description = "Next.js + TypeScript devShell (pnpm, Node LTS)";
+    };
+
     nixosConfigurations.head = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       modules = [
