@@ -52,7 +52,7 @@ let
     battery = map nerd [ "f244" "f243" "f242" "f241" "f240" ];
   };
 
-  wallpaper = ../assets/wallpaper.jpg;
+  wallpaper = ../assets/wallpaper1.jpg;
 
   # Kitty's own background: the same desktop wallpaper, blurred once at
   # build time (not live compositor blur-through, which is per-surface and
