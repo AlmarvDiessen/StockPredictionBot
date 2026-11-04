@@ -3,13 +3,14 @@
   programs.hyprland = {
     enable = true;
     xwayland.enable = true;
-    # UWSM is left off: home-manager's hyprland module already wires up
-    # hyprland-session.target -> graphical-session.target, which is what
-    # starts the Waybar user service.
-    withUWSM = false;
   };
 
   services.displayManager.defaultSession = "hyprland";
+
+  # swaylock (bound to $mod,L; see home/default.nix lockCmd) ships no PAM
+  # service file by default, so without this it cannot authenticate at all
+  # -- the lock screen would be unlockable with any password.
+  security.pam.services.swaylock = {};
 
   # --- Login screen: greetd + ReGreet --------------------------------------
   # programs.regreet enables services.greetd itself and points its
@@ -58,7 +59,7 @@
   systemd.services.greetd.environment.XDG_DATA_DIRS =
     "${config.services.displayManager.sessionData.desktops}/share:/run/current-system/sw/share";
 
-  environment.sessionVariables.TERMINAL = "alacritty";
+  environment.sessionVariables.TERMINAL = "kitty";
 
   fonts.packages = [ pkgs.nerd-fonts.jetbrains-mono ];
 

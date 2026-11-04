@@ -61,6 +61,36 @@ def section($title; $rows):
              | "  " + sgr($text) + pad($keys; 36) + off + sgr($muted) + $d + off ) )
   end;
 
+# Kitty and Neovim have no `hyprctl binds -j` equivalent to introspect -- Kitty's
+# native defaults aren't declared in Nix at all, and Neovim's <leader> sequences
+# are press-then-release, not a simultaneous chord, so they don't fit the
+# modmask/combo model above. These two sections are hand-maintained instead: they
+# won't auto-update if the real bindings change, unlike the Hyprland section.
+def static_section($title; $rows):
+  if ($rows | length) == 0 then []
+  else
+    [ "", sgr($accent) + "  " + $title + off ]
+    + ( $rows | map( "  " + sgr($text) + pad(.keys; 36) + off + sgr($muted) + .description + off ) )
+  end;
+
+def kitty_rows: [
+  { keys: "Ctrl+Shift+T",        description: "Open a new tab" },
+  { keys: "Ctrl+Shift+W",        description: "Close the current tab" },
+  { keys: "Ctrl+Shift+Enter",    description: "Open a new split in this tab" },
+  { keys: "Ctrl+Shift+[ / ]",    description: "Switch to the previous / next tab" },
+  { keys: "Ctrl+Shift+E",        description: "Open the yazi file browser in a new tab" }
+];
+
+def neovim_rows: [
+  { keys: "Space e",             description: "Toggle the file tree" },
+  { keys: "Space f",             description: "Find files" },
+  { keys: "Space g",             description: "Grep files" },
+  { keys: "Space b",             description: "List open buffers" },
+  { keys: "Ctrl+h/j/k/l",        description: "Move focus between split windows" },
+  { keys: "Ctrl+\\",             description: "Toggle the terminal split" },
+  { keys: "Esc (terminal mode)", description: "Leave terminal insert mode" }
+];
+
 [ .[] | select(.has_description == true) ] as $binds
 | ( [ $binds[] | select(.submap == "") ] ) as $main
 | ( [ $binds[] | select(.submap != "") ] ) as $sub
@@ -69,6 +99,8 @@ def section($title; $rows):
       sgr($surface) + "  " + ("-" * 126) + off ]
     + section("General"; $main)
     + section("Resize mode  --  press Super+R first"; $sub)
+    + static_section("Kitty shortcuts"; kitty_rows)
+    + static_section("Neovim shortcuts  --  leader = Space"; neovim_rows)
     + [ "", sgr($surface) + "  " + ("-" * 126) + off,
         sgr($muted) + "  q quits    arrows / PgUp / PgDn scroll" + off, "" ]
   )

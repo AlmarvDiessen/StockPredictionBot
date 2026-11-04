@@ -6,6 +6,10 @@
   boot.loader.efi.canTouchEfiVariables = true;
 
   networking.networkmanager.enable = true;
+  services.upower.enable = true;
+  hardware.bluetooth.enable = true;
+  hardware.bluetooth.powerOnBoot = true;
+  services.blueman.enable = true;
 
   time.timeZone = "Europe/Amsterdam";
 
@@ -27,6 +31,9 @@
     uid = 1000;
     description = "almar";
     extraGroups = [ "networkmanager" "wheel" ];
+    openssh.authorizedKeys.keys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFNw6BbKPArqCBx03vXL06S0nqWcdUGLMgrq9sUKvqGq almar-head"
+    ];
   };
 
   services.openssh.enable = true;

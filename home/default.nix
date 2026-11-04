@@ -54,6 +54,15 @@ let
 
   wallpaper = ../assets/wallpaper.jpg;
 
+  # Kitty's own background: the same desktop wallpaper, blurred once at
+  # build time (not live compositor blur-through, which is per-surface and
+  # wouldn't read as "the wallpaper" through an opaque-ish terminal).
+  blurredWallpaper = pkgs.runCommand "wallpaper-blurred.png"
+    { nativeBuildInputs = [ pkgs.imagemagick ]; }
+    ''
+      magick ${wallpaper} -blur 0x18 "$out"
+    '';
+
   gpuStatus = pkgs.writeShellScript "gpu-status" ''
     read -r temp util <<< "$(/run/current-system/sw/bin/nvidia-smi --query-gpu=temperature.gpu,utilization.gpu --format=csv,noheader,nounits | tr -d ',')"
     echo "GPU ''${temp}°C ''${util}%"
@@ -138,8 +147,8 @@ let
   # Hyprland window rules below match on (it becomes the Wayland app_id).
   sysInfo = pkgs.writeShellScript "sysinfo" ''
     export PATH=${batteryHealth}/bin:$PATH
-    exec ${pkgs.alacritty}/bin/alacritty --class sysinfo \
-      -e ${pkgs.bash}/bin/bash -c \
+    exec ${pkgs.kitty}/bin/kitty --class sysinfo \
+      ${pkgs.bash}/bin/bash -c \
       '${pkgs.fastfetch}/bin/fastfetch; printf "\n  press q to close  "; while :; do IFS= read -rsn1 k || exit 0; [ "$k" = q ] && exit 0; done'
   '';
 
@@ -147,8 +156,8 @@ let
   # it lists whatever is actually bound right now rather than a hand-kept
   # copy that drifts. Only binds declared with `bindd` show up.
   shortcutsHelp = pkgs.writeShellScript "hypr-shortcuts" ''
-    exec ${pkgs.alacritty}/bin/alacritty --class hyprhelp -o font.size=9 \
-      -e ${pkgs.bash}/bin/bash -c \
+    exec ${pkgs.kitty}/bin/kitty --class hyprhelp -o font_size=9 \
+      ${pkgs.bash}/bin/bash -c \
       '${pkgs.hyprland}/bin/hyprctl binds -j \
          | ${pkgs.jq}/bin/jq -r \
              --arg accent  "${sgrOf accent}" \
@@ -191,6 +200,16 @@ in {
     hyprcursor.enable = true;
   };
 
+  # Lets home-manager inject the direnv shell hook below into ~/.bashrc.
+  programs.bash.enable = true;
+
+  programs.direnv = {
+    enable = true;
+    # Caches devShell evaluations so re-entering a project directory is
+    # instant instead of re-evaluating its flake every time.
+    nix-direnv.enable = true;
+  };
+
   programs.fastfetch.enable = true;
 
   # programs.fastfetch only writes this file when `settings` is non-empty,
@@ -207,10 +226,29 @@ in {
       plenary-nvim
       telescope-nvim
       telescope-fzf-native-nvim
+
+      # Treesitter only needs to be on the runtimepath for its bundled
+      # parsers; this version has no configs.lua/.setup({highlight=...}) --
+      # highlighting is enabled via the FileType autocmd below instead.
+      (nvim-treesitter.withPlugins
+        (p: [ p.nix p.python p.lua p.vim p.vimdoc p.typescript p.tsx p.javascript ]))
+
+      nvim-cmp
+      cmp-nvim-lsp
+      cmp-buffer
+      cmp-path
+
+      lualine-nvim
+      gitsigns-nvim
+      toggleterm-nvim
     ];
 
-    # Telescope shells out to these for find_files and live_grep.
-    extraPackages = with pkgs; [ ripgrep fd ];
+    # Telescope shells out to ripgrep/fd; pyright and ruff are the Python
+    # LSP/lint/format backends enabled below; typescript-language-server is
+    # the TS/TSX backend (it also shells out to the typescript package for
+    # some features).
+    extraPackages = with pkgs;
+      [ ripgrep fd pyright ruff typescript-language-server typescript ];
 
     initLua = ''
       -- Leader has to be set before any plugin reads a mapping.
@@ -226,6 +264,7 @@ in {
       vim.o.signcolumn = 'yes'
       vim.o.splitright = true
       vim.o.splitbelow = true
+      vim.o.laststatus = 3  -- one statusline across all splits, for lualine
 
       -- ---- palette -------------------------------------------------------
       local bg      = '${bg}'
@@ -273,10 +312,25 @@ in {
         hl(0, 'TelescopePreviewTitle', { fg = bg, bg = accent })
         hl(0, 'TelescopeSelection',    { fg = text, bg = surface })
         hl(0, 'TelescopeMatching',     { fg = accent, bold = true })
+
+        -- git signs (colors only; glyphs come from gitsigns.setup below)
+        hl(0, 'GitSignsAdd',          { fg = accent })
+        hl(0, 'GitSignsChange',       { fg = muted })
+        hl(0, 'GitSignsDelete',       { fg = accent })
+        hl(0, 'GitSignsChangedelete', { fg = accent })
+        hl(0, 'GitSignsTopdelete',    { fg = accent })
+        hl(0, 'GitSignsUntracked',    { fg = muted })
       end
 
       theme()
       vim.api.nvim_create_autocmd('ColorScheme', { callback = theme })
+
+      -- ---- treesitter -----------------------------------------------------
+      -- nvim-treesitter (this version) ships parsers only; highlighting is
+      -- Neovim core's own vim.treesitter.start(), per the plugin's README.
+      vim.api.nvim_create_autocmd('FileType', {
+        callback = function() pcall(vim.treesitter.start) end,
+      })
 
       -- ---- file tree -----------------------------------------------------
       require('nvim-tree').setup({
@@ -286,6 +340,40 @@ in {
           indent_markers = { enable = true },
         },
         filters = { dotfiles = false },
+        git = { enable = true },
+        diagnostics = { enable = true },
+        hijack_directories = { enable = true, auto_open = true },
+      })
+
+      -- ---- git signs -------------------------------------------------------
+      require('gitsigns').setup({
+        signcolumn = true,
+      })
+
+      -- ---- statusline -------------------------------------------------------
+      local lualineTheme = {
+        normal   = { a = { fg = bg, bg = accent, gui = 'bold' }, b = { fg = text, bg = surface }, c = { fg = text, bg = bg } },
+        insert   = { a = { fg = bg, bg = text,   gui = 'bold' }, b = { fg = text, bg = surface }, c = { fg = text, bg = bg } },
+        visual   = { a = { fg = bg, bg = accent, gui = 'bold' }, b = { fg = text, bg = surface }, c = { fg = text, bg = bg } },
+        replace  = { a = { fg = bg, bg = accent, gui = 'bold' }, b = { fg = text, bg = surface }, c = { fg = text, bg = bg } },
+        command  = { a = { fg = bg, bg = accent, gui = 'bold' }, b = { fg = text, bg = surface }, c = { fg = text, bg = bg } },
+        inactive = { a = { fg = muted, bg = surface }, b = { fg = muted, bg = surface }, c = { fg = muted, bg = surface } },
+      }
+
+      require('lualine').setup({
+        options = {
+          theme = lualineTheme,
+          component_separators = ''',
+          section_separators = ''',
+        },
+        sections = {
+          lualine_a = { 'mode' },
+          lualine_b = { 'branch' },
+          lualine_c = { 'filename' },
+          lualine_x = { 'diagnostics', 'filetype' },
+          lualine_y = { 'progress' },
+          lualine_z = { 'location' },
+        },
       })
 
       -- ---- fuzzy finder --------------------------------------------------
@@ -314,50 +402,149 @@ in {
       map('n', '<C-k>', '<C-w>k', { desc = 'Window up' })
       map('n', '<C-l>', '<C-w>l', { desc = 'Window right' })
 
+      -- ---- terminal --------------------------------------------------------
+      require('toggleterm').setup({
+        direction = 'horizontal',
+        size = 12,
+        open_mapping = [[<c-\>]],
+      })
+      -- Esc leaves terminal insert mode without the <C-\><C-n> chord.
+      map('t', '<Esc>', [[<C-\><C-n>]])
+
+      -- ---- IDE layout on open: file tree + terminal + code ------------------
+      -- Only when nvim is opened with a real file argument (not stdin, not a
+      -- commit-message/no-arg launch), so quick `nvim` or piped usage stays plain.
+      vim.api.nvim_create_autocmd('VimEnter', {
+        callback = function()
+          if vim.fn.argc() == 0 then return end
+          vim.cmd('NvimTreeOpen')
+          vim.cmd('wincmd l')
+          vim.cmd('ToggleTerm direction=horizontal size=12')
+          vim.cmd('wincmd k')
+        end,
+      })
+
+      -- ---- autocomplete ---------------------------------------------------
+      local cmp = require('cmp')
+      cmp.setup({
+        mapping = cmp.mapping.preset.insert({
+          ['<C-Space>'] = cmp.mapping.complete(),
+          ['<CR>']      = cmp.mapping.confirm({ select = false }),
+          ['<Tab>']     = cmp.mapping.select_next_item(),
+          ['<S-Tab>']   = cmp.mapping.select_prev_item(),
+        }),
+        sources = cmp.config.sources({
+          { name = 'nvim_lsp' },
+        }, {
+          { name = 'buffer' },
+          { name = 'path' },
+        }),
+      })
+
+      -- Passed into every vim.lsp.config() below so servers advertise the
+      -- extra completion-related capabilities nvim-cmp relies on. Inline
+      -- diagnostics need nothing extra -- Neovim core shows those
+      -- automatically for any attached client.
+      local capabilities = require('cmp_nvim_lsp').default_capabilities()
+
       -- ---- LSP -----------------------------------------------------------
       vim.lsp.config('nil_ls', {
         cmd = { 'nil' },
+        filetypes = { 'nix' },
+        capabilities = capabilities,
         settings = { ['nil'] = { formatting = { command = { 'nixfmt' } } } },
       })
       vim.lsp.enable('nil_ls')
+
+      vim.lsp.config('pyright', {
+        cmd = { 'pyright-langserver', '--stdio' },
+        filetypes = { 'python' },
+        capabilities = capabilities,
+        root_markers = { 'pyproject.toml', 'setup.py', 'setup.cfg', '.git' },
+      })
+      vim.lsp.enable('pyright')
+
+      vim.lsp.config('ruff', {
+        cmd = { 'ruff', 'server' },
+        filetypes = { 'python' },
+        capabilities = capabilities,
+        root_markers = { 'pyproject.toml', 'setup.py', 'setup.cfg', '.git' },
+      })
+      vim.lsp.enable('ruff')
+
+      vim.lsp.config('ts_ls', {
+        cmd = { 'typescript-language-server', '--stdio' },
+        filetypes = { 'javascript', 'javascriptreact', 'typescript', 'typescriptreact' },
+        capabilities = capabilities,
+        root_markers = { 'package.json', 'tsconfig.json', '.git' },
+      })
+      vim.lsp.enable('ts_ls')
     '';
   };
 
-  programs.alacritty = {
+  programs.kitty = {
     enable = true;
+    font = {
+      name = font;
+      size = 11;
+    };
     settings = {
-      font = {
-        normal.family = font;
-        size = 11;
-      };
-      colors = {
-        primary = {
-          background = bg;
-          foreground = text;
-        };
-        normal = {
-          black = surface;
-          red = accent;
-          green = muted;
-          yellow = accent;
-          blue = muted;
-          magenta = accent;
-          cyan = muted;
-          white = text;
-        };
-        bright = {
-          black = muted;
-          red = accent;
-          green = text;
-          yellow = accent;
-          blue = text;
-          magenta = accent;
-          cyan = text;
-          white = text;
-        };
-      };
+      background = bg;
+      foreground = text;
+
+      color0 = surface;
+      color1 = accent;
+      color2 = muted;
+      color3 = accent;
+      color4 = muted;
+      color5 = accent;
+      color6 = muted;
+      color7 = text;
+
+      color8 = muted;
+      color9 = accent;
+      color10 = text;
+      color11 = accent;
+      color12 = text;
+      color13 = accent;
+      color14 = text;
+      color15 = text;
+
+      # Native tabs/splits are on by default (ctrl+shift+t/w, ctrl+shift+enter,
+      # ctrl+shift+[ / ]); only the tab bar's look needs setting to match the
+      # rest of the theme.
+      tab_bar_edge = "top";
+      tab_bar_style = "powerline";
+      tab_powerline_style = "slanted";
+      active_tab_background = accent;
+      active_tab_foreground = bg;
+      inactive_tab_background = surface;
+      inactive_tab_foreground = muted;
+
+      # Padding + split/window border ("outline"). Kitty's own border is
+      # always square -- there's no corner-radius option for it. The
+      # *rounded* look comes only from Hyprland's decoration.rounding below,
+      # which rounds the whole OS window including this background.
+      window_padding_width = 6;
+      window_border_width = "1pt";
+      active_border_color = accent;
+      inactive_border_color = surface;
+
+      # Blurred-wallpaper background, tinted enough to keep text legible.
+      # Starting values -- tune by eye.
+      background_image = "${blurredWallpaper}";
+      background_image_layout = "cscaled";
+      background_tint = 0.55;
+    };
+
+    keybindings = {
+      # Standalone TUI file browser, additive to nvim-tree: opens in its own
+      # kitty tab rather than taking over the current window/editor.
+      "ctrl+shift+e" = "launch --type=tab --title yazi ${pkgs.yazi}/bin/yazi";
     };
   };
+
+  programs.yazi.enable = true;
 
   # --- Waybar (Hyprland bar) ------------------------------------------------
   # Started by home-manager's systemd user service, which is WantedBy
@@ -379,7 +566,7 @@ in {
 
       modules-left = [ "hyprland/workspaces" "custom/gpu" "cpu" ];
       modules-center = [ "clock" ];
-      modules-right = [ "network" "battery" "custom/weather" ];
+      modules-right = [ "hyprland/submap" "network" "battery" "custom/weather" ];
 
       "hyprland/workspaces" = {
         format = "{id}";
@@ -481,7 +668,7 @@ in {
       };
 
       decoration = {
-        rounding = 0;
+        rounding = 10;
         # The original 1.0/0.92 pair was effectively invisible: the focused
         # window was fully opaque and 8% on the rest reads as nothing. These
         # values were picked by setting them live and comparing screenshots.
@@ -531,9 +718,9 @@ in {
       bindd = [
         # --- the bindings carried over from i3 ---
         "$mod, D, Open the rofi application launcher to search and start any installed program, exec, ${pkgs.rofi}/bin/rofi -show drun"
-        "$mod, T, Open a new Alacritty terminal window on the current active workspace, exec, ${pkgs.alacritty}/bin/alacritty"
+        "$mod, T, Open a new Kitty terminal window on the current active workspace, exec, ${pkgs.kitty}/bin/kitty"
         "ALT, Tab, Switch to another open window by picking it from the rofi list, exec, ${pkgs.rofi}/bin/rofi -show window"
-        "$mod, F, Toggle real fullscreen on the focused window hiding its border and bar, fullscreen, 0"
+        "$mod, F, Maximize the focused window to fill the usable screen area while keeping waybar visible, fullscreen, 1"
         "$mod SHIFT, Q, Close the currently focused window and free the screen space it used, killactive"
         "$mod SHIFT, R, Reload the Hyprland configuration from disk without restarting your running desktop session, exec, ${pkgs.hyprland}/bin/hyprctl reload"
         "$mod SHIFT, E, Open the exit menu to lock log out reboot or shut down, exec, ${exitMenu}"
@@ -545,7 +732,7 @@ in {
         "$mod, slash, Open this shortcut helper listing every key binding with a written description, exec, ${shortcutsHelp}"
 
         # i3 default: Mod+Return opens a terminal
-        "$mod, Return, Open a new Alacritty terminal window matching the old i3 keyboard binding, exec, ${pkgs.alacritty}/bin/alacritty"
+        "$mod, Return, Open a new Kitty terminal window matching the old i3 keyboard binding, exec, ${pkgs.kitty}/bin/kitty"
 
         # i3 default: focus / move with the arrow keys. All four share one
         # description so the cheatsheet collapses them onto a single row.
@@ -708,7 +895,7 @@ in {
   programs.rofi = {
     enable = true;
     font = "${font} 12";
-    terminal = "alacritty";
+    terminal = "kitty";
     extraConfig = {
       show-icons = true;
       modi = "drun,run,window";
