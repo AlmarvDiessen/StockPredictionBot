@@ -41,5 +41,5 @@
 
   programs.nix-ld.enable = true;
 
-  environment.systemPackages = with pkgs; [ claude-code git nodejs_22 ];
+  environment.systemPackages = with pkgs; [ claude-code git nodejs_22 gh ];
 }

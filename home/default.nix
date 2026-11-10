@@ -532,7 +532,21 @@ in {
       # Standalone TUI file browser, additive to nvim-tree: opens in its own
       # kitty tab rather than taking over the current window/editor.
       "ctrl+shift+e" = "launch --type=tab --title yazi ${pkgs.yazi}/bin/yazi";
+
+      # Kitty's own defaults are Ctrl+Shift+=/-; these also answer to
+      # Ctrl+Plus/Ctrl+Minus so Super+]/[ (sendshortcut CTRL,plus/minus in
+      # the Hyprland binds above) zooms Kitty the same way it zooms Firefox.
+      "ctrl+plus" = "increase_font_size";
+      "ctrl+minus" = "decrease_font_size";
     };
+
+    # Font-size zoom via Ctrl+scroll, on top of the keyboard binds above.
+    # mouse_map isn't exposed by home-manager's `keybindings` option
+    # (keyboard-only), hence extraConfig.
+    extraConfig = ''
+      mouse_map ctrl+scroll_up ungrabbed increase_font_size
+      mouse_map ctrl+scroll_down ungrabbed decrease_font_size
+    '';
   };
 
   programs.yazi.enable = true;
@@ -647,6 +661,13 @@ in {
 
     settings = {
       "$mod" = "SUPER";
+
+      # eDP-1 is a 1920x1080 panel at 340x190mm (~143 DPI) -- a perfectly
+      # normal density for a 13" laptop screen, not a HiDPI panel. Left on
+      # Hyprland's auto-detect, it was picking scale 1.5 (logical 1280x720),
+      # which is why everything -- UI, fonts, Firefox, the cursor -- looked
+      # oversized/zoomed in. Pinned to its native mode at scale 1 instead.
+      monitor = "eDP-1, 1920x1080@120, 0x0, 1";
 
       general = {
         gaps_in = 0;
@@ -763,7 +784,20 @@ in {
             "$mod, ${toString n}, Switch the current monitor to that workspace and show the windows on it, workspace, ${ws}"
             "$mod SHIFT, ${toString n}, Send the focused window to that workspace without moving your view there, movetoworkspace, ${ws}"
           ])
-        [ 1 2 3 4 5 6 7 8 9 0 ]);
+        [ 1 2 3 4 5 6 7 8 9 0 ])
+      ++ [
+        # Zoom the focused window's own content (terminal font size, page
+        # zoom) rather than the whole screen: relays Ctrl+Plus/Ctrl+Minus to
+        # whatever window is focused via Hyprland's sendshortcut dispatcher.
+        # Firefox already treats that as its page-zoom shortcut natively;
+        # Kitty is taught the same chord below (programs.kitty.keybindings)
+        # since its own defaults are Ctrl+Shift+=/- instead. Keyboard keys,
+        # not scroll: Hyprland's mouse_up/mouse_down binds trigger the
+        # dispatcher but still forward the scroll to the focused window
+        # underneath (a real Hyprland limitation, no flag suppresses it).
+        "$mod, bracketright, Zoom in the focused window's own content -- terminal font size or page zoom, exec, ${pkgs.hyprland}/bin/hyprctl dispatch sendshortcut 'CTRL,plus,'"
+        "$mod, bracketleft, Zoom out the focused window's own content -- terminal font size or page zoom, exec, ${pkgs.hyprland}/bin/hyprctl dispatch sendshortcut 'CTRL,minus,'"
+      ];
 
       binddm = [
         "$mod, mouse:272, Hold Super and drag with the left mouse button to move windows, movewindow"
@@ -778,9 +812,9 @@ in {
       # collapse into one. Verified against 0.55.4 with Hyprland
       # --verify-config.
       windowrule = [
-        # The cheatsheet is a long list; the panel is 1280x720 logical
-        # (1920x1080 at scale 1.5) so this leaves a margin on every side.
-        "match:class ^(hyprhelp)$, float true, size 1200 684, center true"
+        # The cheatsheet is a long list; the panel is 1920x1080 logical
+        # (scale 1) so this leaves a margin on every side.
+        "match:class ^(hyprhelp)$, float true, size 1800 1026, center true"
       ];
     };
 
