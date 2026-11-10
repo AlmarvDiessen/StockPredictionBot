@@ -143,15 +143,6 @@ let
       $(( design / 1000000 )) $(( (design % 1000000) / 10000 )) "$unit"
   '';
 
-  # Super+i: fastfetch in a floating terminal. The --class is what the
-  # Hyprland window rules below match on (it becomes the Wayland app_id).
-  sysInfo = pkgs.writeShellScript "sysinfo" ''
-    export PATH=${batteryHealth}/bin:$PATH
-    exec ${pkgs.kitty}/bin/kitty --class sysinfo \
-      ${pkgs.bash}/bin/bash -c \
-      '${pkgs.fastfetch}/bin/fastfetch; printf "\n  press q to close  "; while :; do IFS= read -rsn1 k || exit 0; [ "$k" = q ] && exit 0; done'
-  '';
-
   # Super+/: the shortcut cheatsheet. Rendered from `hyprctl binds -j`, so
   # it lists whatever is actually bound right now rather than a hand-kept
   # copy that drifts. Only binds declared with `bindd` show up.
@@ -728,7 +719,7 @@ in {
         "$mod SHIFT, S, Select a screen region and save that screenshot into your Pictures folder, exec, ${screenshotFile}"
         "$mod SHIFT, C, Select a screen region and copy that screenshot directly to the clipboard, exec, ${screenshotClip}"
         "$mod, G, Arrange exactly four windows on the active workspace into a tidy grid, exec, ${hyprGrid}"
-        "$mod, I, Show system information including model memory graphics driver and battery health, exec, ${sysInfo}"
+        "$mod, I, Open imv to browse images saved in your Pictures folder, exec, ${pkgs.imv}/bin/imv $HOME/Pictures"
         "$mod, slash, Open this shortcut helper listing every key binding with a written description, exec, ${shortcutsHelp}"
 
         # i3 default: Mod+Return opens a terminal
@@ -787,10 +778,8 @@ in {
       # collapse into one. Verified against 0.55.4 with Hyprland
       # --verify-config.
       windowrule = [
-        "match:class ^(sysinfo)$, float true, size 900 600, center true"
-        # Taller than the info screen: the cheatsheet is a long list. The
-        # panel is 1280x720 logical (1920x1080 at scale 1.5) so this leaves
-        # a margin on every side.
+        # The cheatsheet is a long list; the panel is 1280x720 logical
+        # (1920x1080 at scale 1.5) so this leaves a margin on every side.
         "match:class ^(hyprhelp)$, float true, size 1200 684, center true"
       ];
     };

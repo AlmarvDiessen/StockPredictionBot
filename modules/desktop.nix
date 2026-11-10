@@ -71,5 +71,6 @@
     grim
     slurp
     wl-clipboard
+    imv
   ];
 }
