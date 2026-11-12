@@ -28,7 +28,7 @@
 
     settings = {
       background = {
-        path = "${../assets/wallpaper.jpg}";
+        path = "${../assets/wallpaper1.jpg}";
         # GTK ContentFit. "Cover" scales to fill the screen and crops the
         # overflow, which is the fill behaviour used elsewhere; GTK's "Fill"
         # would stretch and distort instead.
