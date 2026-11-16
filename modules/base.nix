@@ -12,6 +12,12 @@
   hardware.bluetooth.powerOnBoot = true;
   services.blueman.enable = true;
 
+  # --- USB HID Devices (wireless keyboards/mice) ---
+  services.udev.enable = true;
+
+  boot.kernelModules = [ "hid" "hid_generic" "usbhid" ];
+  boot.kernelParams = [ "usbcore.autosuspend=-1" ];
+
   time.timeZone = "Europe/Amsterdam";
 
   i18n.defaultLocale = "en_US.UTF-8";
@@ -31,7 +37,7 @@
     isNormalUser = true;
     uid = 1000;
     description = "almar";
-    extraGroups = [ "networkmanager" "wheel" ];
+    extraGroups = [ "networkmanager" "wheel" "input" ];
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFNw6BbKPArqCBx03vXL06S0nqWcdUGLMgrq9sUKvqGq almar-head"
     ];
