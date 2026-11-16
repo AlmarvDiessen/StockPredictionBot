@@ -48,6 +48,14 @@
     { "type": "wm", "key": "WM" },
     { "type": "terminal", "key": "Term" },
     { "type": "packages", "key": "Pkgs" },
+    { "type": "localIp", "key": "IP" },
+    { "type": "display", "key": "Display" },
+    { "type": "locale", "key": "Locale" },
+    { "type": "dns", "key": "DNS" },
+    { "type": "disk", "key": "Storage" },
+    { "type": "dateTime", "key": "DateTime" },
+    { "type": "netIo", "key": "Net I/O" },
+    { "type": "bluetooth", "key": "Bluetooth" },
 
     "break",
 
