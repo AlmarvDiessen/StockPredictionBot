@@ -7,9 +7,10 @@
       url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    claude-env.url = "github:MrBlueStudios/claude-env";
   };
 
-  outputs = { self, nixpkgs, home-manager, ... }: {
+  outputs = { self, nixpkgs, home-manager, claude-env, ... }: {
     templates.nextjs-ts = {
       path = ./templates/nextjs-ts;
       description = "Next.js + TypeScript devShell (pnpm, Node LTS)";
@@ -26,6 +27,7 @@
         {
           home-manager.useGlobalPkgs = true;
           home-manager.useUserPackages = true;
+          home-manager.extraSpecialArgs = { inherit claude-env; };
           home-manager.users.almar = import ./home/default.nix;
         }
       ];

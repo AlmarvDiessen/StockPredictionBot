@@ -1,4 +1,4 @@
-{ pkgs, lib, ... }:
+{ pkgs, lib, claude-env, ... }:
 let
   bg = "#1b1b1b";
   surface = "#323232";
@@ -172,6 +172,16 @@ let
     esac
   '';
 in {
+  imports = [ claude-env.homeManagerModules.default ];
+
+  # claude-env: declares MCP servers, skills, hooks and ~/.claude/CLAUDE.md into this
+  # home-manager profile. tier stays "base" (no shared company credential); modes.enable
+  # is on since Kitty is this profile's terminal.
+  claude-env = {
+    user.name = "Almar";
+    modes.enable = true;
+  };
+
   home.stateVersion = "26.05";
 
   home.packages = [ batteryHealth ]

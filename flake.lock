@@ -1,5 +1,40 @@
 {
   "nodes": {
+    "claude-env": {
+      "inputs": {
+        "claude-web-stack": "claude-web-stack"
+      },
+      "locked": {
+        "lastModified": 1795507704,
+        "narHash": "sha256-D3ChoCtE1+BNFlTv6u8EGyFrOH44klWTCaBo4wJRxPQ=",
+        "owner": "MrBlueStudios",
+        "repo": "claude-env",
+        "rev": "5ec7e19a27b654a77001db9fc2dfb280ff55ef74",
+        "type": "github"
+      },
+      "original": {
+        "owner": "MrBlueStudios",
+        "repo": "claude-env",
+        "type": "github"
+      }
+    },
+    "claude-web-stack": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1793972210,
+        "narHash": "sha256-koMbNwfsgenm/QUf5LleG4NiLNxiXkGqS36gg++uam0=",
+        "ref": "main",
+        "rev": "19130c1e02d2befe33e4aa2a18633929dc04c9b5",
+        "revCount": 4,
+        "type": "git",
+        "url": "ssh://git@github.com/MrBlueStudios/claude-web-stack"
+      },
+      "original": {
+        "ref": "main",
+        "type": "git",
+        "url": "ssh://git@github.com/MrBlueStudios/claude-web-stack"
+      }
+    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -39,6 +74,7 @@
     },
     "root": {
       "inputs": {
+        "claude-env": "claude-env",
         "home-manager": "home-manager",
         "nixpkgs": "nixpkgs"
       }
