@@ -533,10 +533,10 @@ in {
       # kitty tab rather than taking over the current window/editor.
       "ctrl+shift+e" = "launch --type=tab --title yazi ${pkgs.yazi}/bin/yazi";
 
-      # Kitty's own defaults are Ctrl+Shift+=/-; these also answer to
-      # Ctrl+Plus/Ctrl+Minus so Super+]/[ (sendshortcut CTRL,plus/minus in
+      # Kitty's own defaults are Ctrl+Shift+=/-; these also answer to plain
+      # Ctrl+Equal/Ctrl+Minus so Super+]/[ (sendshortcut CTRL,equal/minus in
       # the Hyprland binds above) zooms Kitty the same way it zooms Firefox.
-      "ctrl+plus" = "increase_font_size";
+      "ctrl+equal" = "increase_font_size";
       "ctrl+minus" = "decrease_font_size";
     };
 
@@ -787,7 +787,7 @@ in {
         [ 1 2 3 4 5 6 7 8 9 0 ])
       ++ [
         # Zoom the focused window's own content (terminal font size, page
-        # zoom) rather than the whole screen: relays Ctrl+Plus/Ctrl+Minus to
+        # zoom) rather than the whole screen: relays Ctrl+Equal/Ctrl+Minus to
         # whatever window is focused via Hyprland's sendshortcut dispatcher.
         # Firefox already treats that as its page-zoom shortcut natively;
         # Kitty is taught the same chord below (programs.kitty.keybindings)
@@ -795,8 +795,20 @@ in {
         # not scroll: Hyprland's mouse_up/mouse_down binds trigger the
         # dispatcher but still forward the scroll to the focused window
         # underneath (a real Hyprland limitation, no flag suppresses it).
-        "$mod, bracketright, Zoom in the focused window's own content -- terminal font size or page zoom, exec, ${pkgs.hyprland}/bin/hyprctl dispatch sendshortcut 'CTRL,plus,'"
-        "$mod, bracketleft, Zoom out the focused window's own content -- terminal font size or page zoom, exec, ${pkgs.hyprland}/bin/hyprctl dispatch sendshortcut 'CTRL,minus,'"
+        #
+        # Two gotchas in the sendshortcut arg string, confirmed by testing
+        # directly against hyprctl (Hyprland 0.55.4):
+        #   - "plus" is not a recognized key name for this dispatcher (it
+        #     fails with "key not found") -- use "equal" instead, which is
+        #     also the physical key Ctrl+Plus sends on a US layout and what
+        #     Firefox/Kitty actually bind zoom-in to.
+        #   - the arg parser silently drops one trailing empty field, so a
+        #     plain trailing comma (meant to leave the window-selector field
+        #     empty, i.e. "focused window") collapses the arg count below 3
+        #     and fails with "invalid args". A second trailing comma survives
+        #     the drop and leaves the selector empty as intended.
+        "$mod, bracketright, Zoom in the focused window's own content -- terminal font size or page zoom, exec, ${pkgs.hyprland}/bin/hyprctl dispatch sendshortcut 'CTRL,equal,,'"
+        "$mod, bracketleft, Zoom out the focused window's own content -- terminal font size or page zoom, exec, ${pkgs.hyprland}/bin/hyprctl dispatch sendshortcut 'CTRL,minus,,'"
       ];
 
       binddm = [
