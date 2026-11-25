@@ -1,4 +1,9 @@
-{ pkgs, lib, claude-env, ... }:
+{
+  pkgs,
+  lib,
+  claude-env,
+  ...
+}:
 let
   bg = "#1b1b1b";
   surface = "#323232";
@@ -13,31 +18,42 @@ let
 
   # "#RRGGBB" -> a truecolour SGR foreground code, so terminal output can be
   # coloured straight from the palette above.
-  sgrOf = c:
+  sgrOf =
+    c:
     let
       h = hexOf c;
       comp = i: toString (lib.fromHexString (builtins.substring i 2 h));
-    in "38;2;${comp 0};${comp 2};${comp 4}";
+    in
+    "38;2;${comp 0};${comp 2};${comp 4}";
 
   # Nerd Font glyphs, written as codepoints instead of literal characters.
   # Literal private-use characters are easy to lose in transit, and a lost
   # one degrades silently into an empty icon rather than an error, so this
   # file stays pure ASCII. Handles both the BMP and the supplementary plane
   # (where most Material Design icons live) via JSON \u escapes.
-  nerd = hex:
+  nerd =
+    hex:
     let
       cp = lib.fromHexString hex;
       digits = "0123456789abcdef";
-      hex4 = n:
-        lib.concatMapStrings (p: builtins.substring (lib.mod (n / p) 16) 1 digits)
-          [ 4096 256 16 1 ];
+      hex4 =
+        n:
+        lib.concatMapStrings (p: builtins.substring (lib.mod (n / p) 16) 1 digits) [
+          4096
+          256
+          16
+          1
+        ];
       esc =
         if cp < 65536 then
           "\\u${hex4 cp}"
         else
-          let c = cp - 65536;
-          in "\\u${hex4 (55296 + (c / 1024))}\\u${hex4 (56320 + (lib.mod c 1024))}";
-    in builtins.fromJSON "\"${esc}\"";
+          let
+            c = cp - 65536;
+          in
+          "\\u${hex4 (55296 + (c / 1024))}\\u${hex4 (56320 + (lib.mod c 1024))}";
+    in
+    builtins.fromJSON "\"${esc}\"";
 
   icons = {
     cpu = nerd "f4bc"; # nf-oct-cpu
@@ -47,9 +63,21 @@ let
     ethernet = nerd "f0200"; # nf-md-ethernet
     wifiOff = nerd "f092d"; # nf-md-wifi-strength-off
     # 0 -> 4 bars
-    wifi = map nerd [ "f092f" "f091f" "f0922" "f0925" "f0928" ];
+    wifi = map nerd [
+      "f092f"
+      "f091f"
+      "f0922"
+      "f0925"
+      "f0928"
+    ];
     # empty -> full
-    battery = map nerd [ "f244" "f243" "f242" "f241" "f240" ];
+    battery = map nerd [
+      "f244"
+      "f243"
+      "f242"
+      "f241"
+      "f240"
+    ];
   };
 
   wallpaper = ../assets/wallpaper1.jpg;
@@ -57,11 +85,11 @@ let
   # Kitty's own background: the same desktop wallpaper, blurred once at
   # build time (not live compositor blur-through, which is per-surface and
   # wouldn't read as "the wallpaper" through an opaque-ish terminal).
-  blurredWallpaper = pkgs.runCommand "wallpaper-blurred.png"
-    { nativeBuildInputs = [ pkgs.imagemagick ]; }
-    ''
-      magick ${wallpaper} -blur 0x18 "$out"
-    '';
+  blurredWallpaper =
+    pkgs.runCommand "wallpaper-blurred.png" { nativeBuildInputs = [ pkgs.imagemagick ]; }
+      ''
+        magick ${wallpaper} -blur 0x18 "$out"
+      '';
 
   gpuStatus = pkgs.writeShellScript "gpu-status" ''
     read -r temp util <<< "$(/run/current-system/sw/bin/nvidia-smi --query-gpu=temperature.gpu,utilization.gpu --format=csv,noheader,nounits | tr -d ',')"
@@ -171,7 +199,8 @@ let
       "Shut down") exec ${pkgs.systemd}/bin/systemctl poweroff ;;
     esac
   '';
-in {
+in
+{
   imports = [ claude-env.homeManagerModules.default ];
 
   # claude-env: declares MCP servers, skills, hooks and ~/.claude/CLAUDE.md into this
@@ -180,12 +209,41 @@ in {
   claude-env = {
     user.name = "Almar";
     modes.enable = true;
+
+    # Plugins installed on this machine before claude-env took over enabledPlugins; without
+    # these, claude-env's switch silently disables them (reported by claude-plugins-check).
+    plugins.personal = {
+      "andrej-karpathy-skills@karpathy-skills" = true;
+      "vercel@claude-plugins-official" = true;
+    };
+    plugins.personalMarketplaces.karpathy-skills.repo = "forrestchang/andrej-karpathy-skills";
+
+    # Upstream's mcp.nix points at .../bin/mcp-server-playwright, but this nixpkgs' playwright-mcp
+    # names its binary playwright-mcp -- the ENOENT claude-plugins-check reported. Override rather
+    # than patch claude-env itself.
+    mcp.personal.playwright = {
+      type = "stdio";
+      command = "${pkgs.playwright-mcp}/bin/playwright-mcp";
+      args = [
+        "--headless"
+        "--isolated"
+        "--executable-path"
+        "${pkgs.chromium}/bin/chromium"
+      ];
+      env.PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
+    };
   };
 
   home.stateVersion = "26.05";
 
-  home.packages = [ batteryHealth ]
-    ++ (with pkgs; [ nil nixfmt jq ]);
+  home.packages = [
+    batteryHealth
+  ]
+  ++ (with pkgs; [
+    nil
+    nixfmt
+    jq
+  ]);
 
   # X11 supplied a cursor implicitly; Wayland does not. Without a theme the
   # compositor still draws its built-in fallback, but XWayland and GTK apps
@@ -231,8 +289,16 @@ in {
       # Treesitter only needs to be on the runtimepath for its bundled
       # parsers; this version has no configs.lua/.setup({highlight=...}) --
       # highlighting is enabled via the FileType autocmd below instead.
-      (nvim-treesitter.withPlugins
-        (p: [ p.nix p.python p.lua p.vim p.vimdoc p.typescript p.tsx p.javascript ]))
+      (nvim-treesitter.withPlugins (p: [
+        p.nix
+        p.python
+        p.lua
+        p.vim
+        p.vimdoc
+        p.typescript
+        p.tsx
+        p.javascript
+      ]))
 
       nvim-cmp
       cmp-nvim-lsp
@@ -248,8 +314,14 @@ in {
     # LSP/lint/format backends enabled below; typescript-language-server is
     # the TS/TSX backend (it also shells out to the typescript package for
     # some features).
-    extraPackages = with pkgs;
-      [ ripgrep fd pyright ruff typescript-language-server typescript ];
+    extraPackages = with pkgs; [
+      ripgrep
+      fd
+      pyright
+      ruff
+      typescript-language-server
+      typescript
+    ];
 
     initLua = ''
       -- Leader has to be set before any plugin reads a mapping.
@@ -579,9 +651,18 @@ in {
       # Matches the old polybar module-margin; the stylesheet adds padding.
       spacing = 12;
 
-      modules-left = [ "hyprland/workspaces" "custom/gpu" "cpu" ];
+      modules-left = [
+        "hyprland/workspaces"
+        "custom/gpu"
+        "cpu"
+      ];
       modules-center = [ "clock" ];
-      modules-right = [ "hyprland/submap" "network" "battery" "custom/weather" ];
+      modules-right = [
+        "hyprland/submap"
+        "network"
+        "battery"
+        "custom/weather"
+      ];
 
       "hyprland/workspaces" = {
         format = "{id}";
@@ -788,13 +869,29 @@ in {
         "$mod, R, Enter resize mode where the arrow keys resize the currently focused window, submap, resize"
       ]
       ++ (builtins.concatMap
-        (n:
-          let ws = if n == 0 then "10" else toString n;
-          in [
+        (
+          n:
+          let
+            ws = if n == 0 then "10" else toString n;
+          in
+          [
             "$mod, ${toString n}, Switch the current monitor to that workspace and show the windows on it, workspace, ${ws}"
             "$mod SHIFT, ${toString n}, Send the focused window to that workspace without moving your view there, movetoworkspace, ${ws}"
-          ])
-        [ 1 2 3 4 5 6 7 8 9 0 ])
+          ]
+        )
+        [
+          1
+          2
+          3
+          4
+          5
+          6
+          7
+          8
+          9
+          0
+        ]
+      )
       ++ [
         # Zoom the focused window's own content (terminal font size, page
         # zoom) rather than the whole screen: relays Ctrl+Equal/Ctrl+Minus to
