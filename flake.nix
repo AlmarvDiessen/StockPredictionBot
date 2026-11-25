@@ -23,6 +23,7 @@
         ./modules/base.nix
         ./modules/nvidia.nix
         ./modules/desktop.nix
+        claude-env.nixosModules.default
         home-manager.nixosModules.home-manager
         {
           home-manager.useGlobalPkgs = true;
