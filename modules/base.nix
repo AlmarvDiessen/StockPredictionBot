@@ -1,4 +1,19 @@
-{ pkgs, ... }: {
+{ pkgs, ... }:
+let
+  # nixos-26.05's claude-code is pinned to 2.1.223 (built 2026-08-05); claude-env's
+  # marketplace pins need 2.1.324+. Override to the current stable release until the
+  # channel catches up.
+  claude-code = pkgs.claude-code.override {
+    manifest = {
+      version = "2.1.326";
+      platforms.linux-x64 = {
+        binary = "claude";
+        checksum = "b6b3647d981130dc44fc670846ae97b6cde531ffb667cf9c4d17cfcafb38cb37";
+        size = 371429904;
+      };
+    };
+  };
+in {
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   nixpkgs.config.allowUnfree = true;
 
@@ -48,5 +63,5 @@
 
   programs.nix-ld.enable = true;
 
-  environment.systemPackages = with pkgs; [ claude-code git nodejs_22 gh ];
+  environment.systemPackages = [ claude-code pkgs.git pkgs.nodejs_22 pkgs.gh ];
 }
